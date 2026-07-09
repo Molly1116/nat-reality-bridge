@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NAT Reality Bridge v1.2.0 installer.
+# NAT Reality Bridge v1.3.0 installer.
 # Review before running. Sensitive values are collected interactively.
 
-NRB_VERSION="v1.2.0"
+NRB_VERSION="v1.3.0"
 XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
 XRAY_BIN="/usr/local/bin/xray"
 XRAY_CONFIG_DIR="/etc/xray"
@@ -47,6 +47,9 @@ OUTBOUND_COUNTRY=""
 OUTBOUND_ASN=""
 XRAY_RUNNING="unknown"
 QR_RESULT="not_run"
+RESOURCE_MODE="NORMAL"
+DOWNLOAD_TOOL=""
+SWAP_MB="0"
 
 banner() {
   cat <<'EOF'
@@ -59,6 +62,35 @@ EOF
 die() {
   echo "ERROR: $*" >&2
   exit 1
+}
+
+detect_download_tool() {
+  if command -v curl >/dev/null 2>&1; then
+    DOWNLOAD_TOOL="curl"
+  elif command -v wget >/dev/null 2>&1; then
+    DOWNLOAD_TOOL="wget"
+  else
+    die "curl or wget is required to download Xray-core. Install one of them first, or copy release files manually on extreme minimal systems."
+  fi
+}
+
+download_file() {
+  local url="$1"
+  local output="$2"
+  case "$DOWNLOAD_TOOL" in
+    curl) curl -fL --connect-timeout 20 --retry 2 --retry-delay 2 -o "$output" "$url" ;;
+    wget) wget -O "$output" --timeout=20 --tries=3 "$url" ;;
+    *) die "No download tool selected." ;;
+  esac
+}
+
+fetch_text() {
+  local url="$1"
+  case "$DOWNLOAD_TOOL" in
+    curl) curl -fsS --max-time 20 "$url" ;;
+    wget) wget -qO- --timeout=20 --tries=2 "$url" ;;
+    *) return 1 ;;
+  esac
 }
 
 init_paths() {
@@ -103,7 +135,8 @@ read_secret() {
 preflight() {
   echo
   echo "== preflight checks =="
-  command -v curl >/dev/null || die "curl is required."
+  detect_download_tool
+  echo "Download tool: ${DOWNLOAD_TOOL}"
   command -v unzip >/dev/null || die "unzip is required."
   command -v sha256sum >/dev/null || die "sha256sum is required."
   command -v systemctl >/dev/null || die "systemd is required."
@@ -130,13 +163,26 @@ preflight() {
   fi
 
   mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+  swap_kb="$(awk '/SwapTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+  SWAP_MB="$((swap_kb / 1024))"
   disk_kb="$(df -Pk /usr/local 2>/dev/null | awk 'NR==2 {print $4}' || echo 0)"
   echo "Memory: $((mem_kb / 1024)) MB"
+  echo "Swap: ${SWAP_MB} MB"
   echo "Free disk under /usr/local: $((disk_kb / 1024)) MB"
-  if [ "$mem_kb" -lt 160000 ]; then
-    echo "Low-resource mode: enabled"
+  if [ "$mem_kb" -lt 80000 ]; then
+    RESOURCE_MODE="EXTREME_LOW_RESOURCE"
+  elif [ "$mem_kb" -lt 160000 ]; then
+    RESOURCE_MODE="LOW_RESOURCE"
+  else
+    RESOURCE_MODE="NORMAL"
   fi
-  [ "$mem_kb" -ge 90000 ] || echo "Warning: memory is below 90 MB; Xray may still run, but margin is small." >&2
+  echo "Resource mode: ${RESOURCE_MODE}"
+  if [ "$RESOURCE_MODE" = "EXTREME_LOW_RESOURCE" ]; then
+    echo "Warning: 64MB-class VPS detected. Skipping non-essential network checks and optional QR package installation." >&2
+  elif [ "$RESOURCE_MODE" = "LOW_RESOURCE" ]; then
+    echo "Low-resource mode: enabled"
+    [ "$swap_kb" -gt 0 ] || echo "Warning: swap is recommended on 128MB-class VPS nodes." >&2
+  fi
   [ "$disk_kb" -ge 51200 ] || die "At least 50 MB free disk under /usr/local is required."
 
   ipv4_addr="$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}')"
@@ -280,8 +326,8 @@ install_xray() {
   mkdir -p "$workdir"
   trap 'rm -rf "$workdir"' EXIT
   cd "$workdir"
-  curl -fL --connect-timeout 20 --retry 2 --retry-delay 2 -o "$asset" "$base_url/$asset"
-  curl -fL --connect-timeout 20 --retry 2 --retry-delay 2 -o "$asset.dgst" "$base_url/$asset.dgst"
+  download_file "$base_url/$asset" "$asset"
+  download_file "$base_url/$asset.dgst" "$asset.dgst"
   calc="$(sha256sum "$asset" | awk '{print $1}')"
   grep -qi "$calc" "$asset.dgst" || die "SHA256 verification failed."
   unzip -q "$asset" -d unpack
@@ -417,14 +463,28 @@ restart_service() {
 
 fetch_ip_meta() {
   local ip="$1"
-  OUTBOUND_COUNTRY="$(curl -fsS --max-time 8 "https://ipapi.co/${ip}/country_name/" 2>/dev/null || true)"
-  OUTBOUND_ASN="$(curl -fsS --max-time 8 "https://ipapi.co/${ip}/asn/" 2>/dev/null || true)"
+  if [ "$RESOURCE_MODE" = "EXTREME_LOW_RESOURCE" ]; then
+    return 0
+  fi
+  OUTBOUND_COUNTRY="$(fetch_text "https://ipapi.co/${ip}/country_name/" 2>/dev/null || true)"
+  OUTBOUND_ASN="$(fetch_text "https://ipapi.co/${ip}/asn/" 2>/dev/null || true)"
 }
 
 test_outbound() {
   echo
   echo "== outbound test =="
+  if [ "$RESOURCE_MODE" = "EXTREME_LOW_RESOURCE" ]; then
+    OUTBOUND_TEST_RESULT="skipped"
+    echo "Outbound test skipped in EXTREME_LOW_RESOURCE mode to reduce memory and network overhead."
+    return 0
+  fi
   if [ "$DEPLOY_MODE" = "isp" ]; then
+    if ! command -v curl >/dev/null 2>&1; then
+      OUTBOUND_TEST_RESULT="skipped"
+      echo "SOCKS5 outbound test skipped because curl is not available."
+      echo "Reason: wget does not provide the SOCKS5 test path used by this installer."
+      return 0
+    fi
     if OUTBOUND_EXIT_IP="$(curl --socks5-hostname "${ISP_SOCKS5_USER}:${ISP_SOCKS5_PASSWORD}@${ISP_SOCKS5_HOST}:${ISP_SOCKS5_PORT}" -fsS --max-time 20 https://api.ipify.org 2>/dev/null)"; then
       OUTBOUND_TEST_RESULT="passed"
       fetch_ip_meta "$OUTBOUND_EXIT_IP"
@@ -436,7 +496,7 @@ test_outbound() {
       return 0
     fi
   else
-    if OUTBOUND_EXIT_IP="$(curl -fsS --max-time 20 https://api.ipify.org 2>/dev/null)"; then
+    if OUTBOUND_EXIT_IP="$(fetch_text "https://api.ipify.org" 2>/dev/null)"; then
       OUTBOUND_TEST_RESULT="passed"
       fetch_ip_meta "$OUTBOUND_EXIT_IP"
     else
@@ -481,22 +541,14 @@ EOF
 
 generate_qr_code() {
   QR_RESULT="skipped"
+  if [ "$RESOURCE_MODE" = "EXTREME_LOW_RESOURCE" ]; then
+    echo "QR code generation skipped in EXTREME_LOW_RESOURCE mode."
+    return 0
+  fi
   if ! command -v qrencode >/dev/null 2>&1; then
     echo
     echo "qrencode is not installed."
-    printf "Install qrencode now for QR code generation? Type yes: " >&2
-    IFS= read -r answer
-    if [ "$answer" = "yes" ]; then
-      if command -v apt-get >/dev/null 2>&1; then
-        if apt-get update && apt-get install -y --no-install-recommends qrencode; then
-          echo "qrencode installed."
-        else
-          echo "qrencode installation failed; QR code generation skipped."
-        fi
-      else
-        echo "apt-get is not available; QR code generation skipped."
-      fi
-    fi
+    echo "QR code generation is optional. Install qrencode manually if you want PNG or terminal QR output."
   fi
 
   if command -v qrencode >/dev/null 2>&1; then

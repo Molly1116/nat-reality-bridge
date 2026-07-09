@@ -245,12 +245,20 @@ Recommended baseline:
 - Swap recommended
 - NAT VPS with provider-side TCP port forwarding
 - systemd available
+- `curl` or `wget` for downloading Xray-core
+- `unzip` and `sha256sum`
 
 This project targets resource-constrained servers.
 
 Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency of NAT Reality Bridge; it is only one way to fetch the project source code.
 
 64 MB RAM NAT VPS instances should be treated as experimental environments. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. In this class of machine, `apt install git` may be terminated by the system because of OOM. Avoid the Git clone workflow on extremely low-memory nodes.
+
+v1.3.0 adds installer resource modes:
+
+- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Skips optional QR package installation, ASN/Country lookup, and non-essential outbound checks.
+- `LOW_RESOURCE`: below 160 MB RAM. Continues installation and warns when swap is missing.
+- `NORMAL`: 160 MB RAM or above.
 
 Before deployment, check:
 
@@ -284,6 +292,8 @@ Use the checklist below before running the installer from any source:
 - Enable or confirm swap on very small NAT VPS nodes.
 - Confirm NAT port mapping before starting Xray.
 - Review the install script before execution.
+- Confirm `curl` or `wget` exists.
+- Confirm `unzip` and `sha256sum` exist.
 
 ## Developer Workflow
 

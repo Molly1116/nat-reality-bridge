@@ -33,10 +33,18 @@ Confirm:
 - Swap is recommended on low-memory nodes.
 - NAT VPS requires provider-side TCP forwarding.
 - systemd is available.
+- `curl` or `wget` is available.
+- `unzip` and `sha256sum` are available.
 
 Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency; it is only one way to fetch the project source code.
 
 64 MB RAM NAT VPS instances are experimental. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. `apt install git` may be killed by OOM on this class of machine, so avoid Git clone as the default workflow there.
+
+Installer resource modes:
+
+- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Keeps Xray download, config generation, systemd startup, and node file output, but skips optional QR installation, ASN/Country lookup, and non-essential outbound checks.
+- `LOW_RESOURCE`: below 160 MB RAM. Continues the full install path and warns when swap is missing.
+- `NORMAL`: 160 MB RAM or above.
 
 ### 2. NAT Port Mapping
 
@@ -164,10 +172,18 @@ df -hT
 - 小内存节点推荐启用 swap。
 - 服务端只有内网地址时，需依赖服务商 NAT 映射。
 - systemd 可用。
+- `curl` 或 `wget` 可用。
+- `unzip` 和 `sha256sum` 可用。
 
 Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是运行依赖，只是获取项目源码的一种方式。
 
 64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。`apt install git` 可能在这类机器上因为 OOM 被系统终止，因此不建议把 Git clone 作为默认流程。
+
+安装器资源模式：
+
+- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。保留 Xray 下载、配置生成、systemd 启动和节点文件输出，但跳过可选二维码安装、ASN/Country 查询和非必要出口检测。
+- `LOW_RESOURCE`：低于 160MB RAM。继续完整安装路径，并在缺少 swap 时提示。
+- `NORMAL`：160MB RAM 或更高。
 
 ### 2. NAT 端口
 

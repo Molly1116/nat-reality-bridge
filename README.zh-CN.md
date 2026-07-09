@@ -226,12 +226,20 @@ ISP Residential Exit Mode 将 Xray 流量路由到带认证的 SOCKS5 ISP Reside
 - 推荐启用 swap
 - 支持服务商 TCP 端口映射的 NAT VPS
 - systemd 可用
+- `curl` 或 `wget` 用于下载 Xray-core
+- `unzip` 和 `sha256sum`
 
 本模板面向资源受限服务器。
 
 Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bridge 的运行依赖，只是获取项目源码的一种方式。
 
 64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。在这类机器上，`apt install git` 可能因为 OOM 被系统终止。极低内存机器不建议使用 `git clone` 工作流。
+
+v1.3.0 增加安装器资源模式：
+
+- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。跳过可选二维码依赖安装、ASN/Country 查询和非必要出口检测。
+- `LOW_RESOURCE`：低于 160MB RAM。继续安装，并在缺少 swap 时提示。
+- `NORMAL`：160MB RAM 或更高。
 
 部署前必须检查：
 
@@ -263,6 +271,8 @@ Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bri
 - 小内存 NAT VPS 已启用或确认 swap。
 - NAT 端口映射已经配置。
 - 已审查安装脚本内容。
+- 已确认存在 `curl` 或 `wget`。
+- 已确认存在 `unzip` 和 `sha256sum`。
 
 ## Developer Workflow
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.0
+
+- Add EXTREME_LOW_RESOURCE, LOW_RESOURCE, and NORMAL installer modes.
+- Support curl or wget as the Xray-core download tool.
+- Remove automatic apt installation for optional QR code dependency.
+- Skip non-essential outbound metadata checks on 64MB-class VPS nodes.
+- Improve documentation for Git-free, low-resource deployment paths.
+
 ## v1.2.2
 
 - Clarify developer workflow and user installation workflow.
