@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NAT Reality Bridge v1.1.0 installer.
+# NAT Reality Bridge v1.2.0 installer.
 # Review before running. Sensitive values are collected interactively.
 
+NRB_VERSION="v1.2.0"
 XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
 XRAY_BIN="/usr/local/bin/xray"
 XRAY_CONFIG_DIR="/etc/xray"
@@ -12,7 +13,13 @@ XRAY_CONFIG_TMP="/etc/xray/config.json.tmp"
 XRAY_SHARE_DIR="/usr/local/share/xray"
 XRAY_SERVICE="/etc/systemd/system/xray.service"
 BACKUP_ROOT="/root/xray-backups"
-NODE_OUTPUT="/root/nat-reality-bridge-node.txt"
+APP_DIR="/root/nat-reality-bridge"
+NODE_OUTPUT="${APP_DIR}/node.txt"
+NODE_LEGACY_OUTPUT="/root/nat-reality-bridge-node.txt"
+NODE_PNG="${APP_DIR}/node.png"
+CLIENT_README="${APP_DIR}/README.txt"
+INSTALL_SUMMARY="${APP_DIR}/install-summary.txt"
+INSTALL_LOG="/var/log/nat-reality-bridge-install.log"
 
 PUBLIC_HOST=""
 PUBLIC_PORT=""
@@ -33,6 +40,13 @@ REALITY_PRIVATE_KEY=""
 REALITY_PUBLIC_KEY=""
 REALITY_SHORT_ID=""
 LAST_BACKUP_DIR=""
+CONFIG_TEST_RESULT="not_run"
+OUTBOUND_TEST_RESULT="not_run"
+OUTBOUND_EXIT_IP=""
+OUTBOUND_COUNTRY=""
+OUTBOUND_ASN=""
+XRAY_RUNNING="unknown"
+QR_RESULT="not_run"
 
 banner() {
   cat <<'EOF'
@@ -45,6 +59,18 @@ EOF
 die() {
   echo "ERROR: $*" >&2
   exit 1
+}
+
+init_paths() {
+  mkdir -p "$APP_DIR"
+  touch "$INSTALL_LOG"
+  chmod 600 "$INSTALL_LOG"
+}
+
+init_logging() {
+  exec > >(tee -a "$INSTALL_LOG") 2>&1
+  echo "== NAT Reality Bridge ${NRB_VERSION} install log =="
+  echo "Started at: $(date -Is)"
 }
 
 need_root() {
@@ -107,8 +133,26 @@ preflight() {
   disk_kb="$(df -Pk /usr/local 2>/dev/null | awk 'NR==2 {print $4}' || echo 0)"
   echo "Memory: $((mem_kb / 1024)) MB"
   echo "Free disk under /usr/local: $((disk_kb / 1024)) MB"
+  if [ "$mem_kb" -lt 160000 ]; then
+    echo "Low-resource mode: enabled"
+  fi
   [ "$mem_kb" -ge 90000 ] || echo "Warning: memory is below 90 MB; Xray may still run, but margin is small." >&2
   [ "$disk_kb" -ge 51200 ] || die "At least 50 MB free disk under /usr/local is required."
+
+  ipv4_addr="$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}')"
+  if [ -n "$ipv4_addr" ]; then
+    echo "IPv4: detected"
+    case "$ipv4_addr" in
+      10.*|192.168.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|100.64.*|100.65.*|100.66.*|100.67.*|100.68.*|100.69.*|100.70.*|100.71.*|100.72.*|100.73.*|100.74.*|100.75.*|100.76.*|100.77.*|100.78.*|100.79.*|100.80.*|100.81.*|100.82.*|100.83.*|100.84.*|100.85.*|100.86.*|100.87.*|100.88.*|100.89.*|100.90.*|100.91.*|100.92.*|100.93.*|100.94.*|100.95.*|100.96.*|100.97.*|100.98.*|100.99.*|100.100.*|100.101.*|100.102.*|100.103.*|100.104.*|100.105.*|100.106.*|100.107.*|100.108.*|100.109.*|100.110.*|100.111.*|100.112.*|100.113.*|100.114.*|100.115.*|100.116.*|100.117.*|100.118.*|100.119.*|100.120.*|100.121.*|100.122.*|100.123.*|100.124.*|100.125.*|100.126.*|100.127.*)
+        echo "NAT environment: likely provider-side NAT or private IPv4"
+        ;;
+      *)
+        echo "NAT environment: public or routed IPv4 detected"
+        ;;
+    esac
+  else
+    echo "Warning: no global IPv4 address detected. Provider NAT mapping may still work, but verify it carefully." >&2
+  fi
 }
 
 choose_mode() {
@@ -201,7 +245,7 @@ backup_existing() {
   mkdir -p "$BACKUP_ROOT"
   LAST_BACKUP_DIR="$BACKUP_ROOT/backup-$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "$LAST_BACKUP_DIR"
-  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT"; do
+  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT" "$INSTALL_SUMMARY"; do
     if [ -e "$p" ]; then
       cp -a "$p" "$LAST_BACKUP_DIR/$(echo "$p" | sed 's#^/##; s#/#_#g')"
     fi
@@ -218,6 +262,8 @@ rollback() {
   [ -f "$LAST_BACKUP_DIR/etc_xray_config.json" ] && cp -a "$LAST_BACKUP_DIR/etc_xray_config.json" "$XRAY_CONFIG"
   [ -f "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" ] && cp -a "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" "$XRAY_SERVICE"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" "$NODE_OUTPUT"
+  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" "$NODE_OUTPUT"
+  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" "$INSTALL_SUMMARY"
   systemctl daemon-reload || true
   systemctl restart xray || true
 }
@@ -361,12 +407,154 @@ restart_service() {
   systemctl enable xray >/dev/null
   systemctl restart xray
   sleep 2
+  if systemctl is-active --quiet xray; then
+    XRAY_RUNNING="yes"
+  else
+    XRAY_RUNNING="no"
+  fi
   systemctl --no-pager --full status xray | sed -n '1,45p'
+}
+
+fetch_ip_meta() {
+  local ip="$1"
+  OUTBOUND_COUNTRY="$(curl -fsS --max-time 8 "https://ipapi.co/${ip}/country_name/" 2>/dev/null || true)"
+  OUTBOUND_ASN="$(curl -fsS --max-time 8 "https://ipapi.co/${ip}/asn/" 2>/dev/null || true)"
+}
+
+test_outbound() {
+  echo
+  echo "== outbound test =="
+  if [ "$DEPLOY_MODE" = "isp" ]; then
+    if OUTBOUND_EXIT_IP="$(curl --socks5-hostname "${ISP_SOCKS5_USER}:${ISP_SOCKS5_PASSWORD}@${ISP_SOCKS5_HOST}:${ISP_SOCKS5_PORT}" -fsS --max-time 20 https://api.ipify.org 2>/dev/null)"; then
+      OUTBOUND_TEST_RESULT="passed"
+      fetch_ip_meta "$OUTBOUND_EXIT_IP"
+      echo "SOCKS5 connection: ok"
+    else
+      OUTBOUND_TEST_RESULT="failed"
+      echo "SOCKS5 connection: failed"
+      echo "Reason: unable to reach the test endpoint through the SOCKS5 outbound."
+      return 0
+    fi
+  else
+    if OUTBOUND_EXIT_IP="$(curl -fsS --max-time 20 https://api.ipify.org 2>/dev/null)"; then
+      OUTBOUND_TEST_RESULT="passed"
+      fetch_ip_meta "$OUTBOUND_EXIT_IP"
+    else
+      OUTBOUND_TEST_RESULT="failed"
+      echo "Native exit test: failed"
+      echo "Reason: unable to reach the public IP test endpoint from this VPS."
+      return 0
+    fi
+  fi
+  echo "Exit IP: ${OUTBOUND_EXIT_IP}"
+  [ -n "$OUTBOUND_COUNTRY" ] && echo "Country: ${OUTBOUND_COUNTRY}"
+  [ -n "$OUTBOUND_ASN" ] && echo "ASN: ${OUTBOUND_ASN}"
+}
+
+write_client_readme() {
+  cat > "$CLIENT_README" <<EOF
+NAT Reality Bridge ${NRB_VERSION}
+
+Files:
+- node.txt: VLESS URI and client parameters.
+- node.png: QR code for the VLESS URI, if qrencode was available.
+- install-summary.txt: installation status summary.
+
+Android:
+- Open v2rayNG.
+- Use scan QR code or import from clipboard.
+
+Windows:
+- Use Nekobox or Karing.
+- Import the vless:// URI from node.txt.
+
+iOS:
+- Use Karing or another compatible client.
+- Scan node.png or import the vless:// URI.
+
+Security:
+- Do not publish node.txt or node.png.
+- Do not share Reality privateKey. It is never written to this client file.
+EOF
+  chmod 600 "$CLIENT_README"
+}
+
+generate_qr_code() {
+  QR_RESULT="skipped"
+  if ! command -v qrencode >/dev/null 2>&1; then
+    echo
+    echo "qrencode is not installed."
+    printf "Install qrencode now for QR code generation? Type yes: " >&2
+    IFS= read -r answer
+    if [ "$answer" = "yes" ]; then
+      if command -v apt-get >/dev/null 2>&1; then
+        if apt-get update && apt-get install -y --no-install-recommends qrencode; then
+          echo "qrencode installed."
+        else
+          echo "qrencode installation failed; QR code generation skipped."
+        fi
+      else
+        echo "apt-get is not available; QR code generation skipped."
+      fi
+    fi
+  fi
+
+  if command -v qrencode >/dev/null 2>&1; then
+    echo
+    echo "QR code:"
+    qrencode -t ANSIUTF8 "$vless_uri" || true
+    if qrencode -o "$NODE_PNG" "$vless_uri"; then
+      chmod 600 "$NODE_PNG"
+      QR_RESULT="generated"
+    else
+      QR_RESULT="failed"
+      echo "PNG QR code generation failed. The node URI is still available in ${NODE_OUTPUT}."
+    fi
+  else
+    echo "QR code skipped. Install qrencode and run: qrencode -o ${NODE_PNG} '<VLESS_URI>'"
+  fi
+}
+
+write_install_summary() {
+  cat > "$INSTALL_SUMMARY" <<EOF
+NAT Reality Bridge version: ${NRB_VERSION}
+Deployment mode: ${DEPLOY_MODE}
+Xray running: ${XRAY_RUNNING}
+Config test result: ${CONFIG_TEST_RESULT}
+Outbound test result: ${OUTBOUND_TEST_RESULT}
+Exit IP: ${OUTBOUND_EXIT_IP:-unknown}
+Country: ${OUTBOUND_COUNTRY:-unknown}
+ASN: ${OUTBOUND_ASN:-unknown}
+QR code: ${QR_RESULT}
+Installed at: $(date -Is)
+EOF
+  chmod 600 "$INSTALL_SUMMARY"
+}
+
+print_completion_summary() {
+  echo
+  echo "NAT Reality Bridge ${NRB_VERSION}"
+  echo
+  echo "Installation completed"
+  echo
+  echo "Status:"
+  [ "$XRAY_RUNNING" = "yes" ] && echo "[OK] Xray running" || echo "[WARN] Xray not running"
+  [ "$CONFIG_TEST_RESULT" = "passed" ] && echo "[OK] Configuration valid" || echo "[WARN] Configuration test: ${CONFIG_TEST_RESULT}"
+  [ "$OUTBOUND_TEST_RESULT" = "passed" ] && echo "[OK] Outbound test passed" || echo "[WARN] Outbound test: ${OUTBOUND_TEST_RESULT}"
+  echo
+  echo "Mode: ${DEPLOY_MODE}"
+  echo "Reality: VLESS Reality TCP Vision"
+  echo "Node file: ${NODE_OUTPUT}"
+  echo "QR PNG: ${NODE_PNG}"
+  echo "Client README: ${CLIENT_README}"
+  echo "Install summary: ${INSTALL_SUMMARY}"
+  echo "Install log: ${INSTALL_LOG}"
 }
 
 generate_uri() {
   spx_encoded="%2F"
   vless_uri="vless://${UUID_VALUE}@${PUBLIC_HOST}:${PUBLIC_PORT}?encryption=none&flow=${FLOW}&security=reality&sni=${REALITY_SERVER_NAME}&fp=chrome&pbk=${REALITY_PUBLIC_KEY}&sid=${REALITY_SHORT_ID}&type=tcp&headerType=none&spx=${spx_encoded}#${NODE_NAME}"
+  mkdir -p "$APP_DIR"
   cat > "$NODE_OUTPUT" <<EOF
 MODE=${DEPLOY_MODE}
 PUBLIC_HOST=${PUBLIC_HOST}
@@ -378,12 +566,17 @@ SERVER_NAME=${REALITY_SERVER_NAME}
 DEST=${REALITY_DEST}
 SPIDER_X=${REALITY_SPIDER_X}
 FLOW=${FLOW}
+SOCKS5_HOST=${ISP_SOCKS5_HOST}
+SOCKS5_PORT=${ISP_SOCKS5_PORT}
 VLESS_URI=${vless_uri}
 EOF
   chmod 600 "$NODE_OUTPUT"
+  install -m 0600 "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT"
+  write_client_readme
+  generate_qr_code
 
   echo
-  echo "Deployment complete"
+  echo "Node connection information"
   if [ "$DEPLOY_MODE" = "isp" ]; then
     echo "Current mode: ISP Residential Exit Mode"
     echo "Exit: SOCKS5 ISP/Residential Exit"
@@ -396,24 +589,11 @@ EOF
   echo "$vless_uri"
 }
 
-test_isp_exit() {
-  if [ "$DEPLOY_MODE" != "isp" ]; then
-    return
-  fi
-  echo
-  echo "== ISP exit test =="
-  if curl --socks5-hostname "${ISP_SOCKS5_USER}:${ISP_SOCKS5_PASSWORD}@${ISP_SOCKS5_HOST}:${ISP_SOCKS5_PORT}" -fsS --max-time 20 https://api.ipify.org; then
-    echo
-    echo "ISP exit test successful"
-  else
-    echo
-    echo "Warning: ISP exit test failed. Check SOCKS5 credentials and provider reachability." >&2
-  fi
-}
-
 main() {
   banner
   need_root
+  init_paths
+  init_logging
   preflight
   choose_mode
   collect_common_inputs
@@ -424,12 +604,19 @@ main() {
   install_xray
   generate_reality_values
   write_temp_config
-  config_test
+  if config_test; then
+    CONFIG_TEST_RESULT="passed"
+  else
+    CONFIG_TEST_RESULT="failed"
+    return 1
+  fi
   activate_config
   write_service
   restart_service
-  test_isp_exit
+  test_outbound
   generate_uri
+  write_install_summary
+  print_completion_summary
   trap - ERR
 }
 

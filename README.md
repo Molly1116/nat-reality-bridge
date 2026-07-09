@@ -31,20 +31,42 @@ Low-cost NAT VPS instances can provide excellent network paths, such as optimize
 
 However, the VPS public IP may not always be suitable as the final Internet exit.
 
+Traditional single-VPS deployments often try to satisfy three requirements at the same time:
+
+- Network route quality
+- Exit IP quality
+- Server cost
+
+In practice, these three goals are difficult to optimize on one machine.
+
 NAT Reality Bridge separates:
 
 - Entry network quality
 - Exit IP quality
 
-Instead of searching for an expensive "perfect VPS", this architecture combines different resources and optimizes each part independently.
+Instead of searching for one server that carries every responsibility, this architecture splits the system into two roles.
 
-Starting from v1.1.0, this project provides:
+Entry node:
+
+- Handles network path and client access quality.
+
+Exit node:
+
+- Handles public egress identity and IP quality.
+
+The result is a low-cost, maintainable cross-region network infrastructure pattern that can be adjusted without rebuilding every layer at once.
+
+Starting from v1.2.0, this project provides:
 
 - Interactive installer
 - Two deployment modes
 - Automatic VLESS URI generation
 - Backup utilities
 - Health check tools
+- QR code generation
+- Outbound test helper
+- Beginner-friendly client files
+- Install summary and install log
 
 ---
 
@@ -79,43 +101,6 @@ Core concept:
 
 ---
 
-# Design Philosophy
-
-Traditional single-server deployments usually require one VPS to handle:
-
-- Network routing
-- Public exit IP
-- Service deployment
-
-This creates trade-offs:
-
-- Good routes do not always mean good exit IP reputation.
-- Good exit IPs do not always provide good client connectivity.
-- Combining both requirements can become expensive.
-
-NAT Reality Bridge separates responsibilities.
-
-## Entry Node
-
-Responsible for:
-
-- NAT port forwarding
-- Network path quality
-- VLESS Reality entry
-- Minimal Xray runtime environment
-
-## Exit Node
-
-Responsible for:
-
-- ISP Residential IP
-- IP reputation
-- Final Internet egress
-
-This allows the entry node to remain low-cost and lightweight while the exit identity can be replaced independently.
-
----
-
 # Features
 
 - NAT VPS support
@@ -129,12 +114,33 @@ This allows the entry node to remain low-cost and lightweight while the exit ide
 - Automatic VLESS URI generation
 - Health check utilities
 - Backup utilities
+- QR code generation for client import
+- Outbound IP test utility
+- Install summary file
+- Uninstall helper
+- Update safety helper
 - SOCKS5 outbound support
 - systemd management
 - No Docker
 - No database
 - No Node.js
 - No web panel by default
+
+---
+
+# 应用场景 / Use Cases
+
+NAT Reality Bridge can be used to build low-cost and maintainable cross-region network infrastructure for personal or lab environments.
+
+Common use cases include:
+
+- Accessing international developer resources, code repositories, and technical documentation.
+- Using international AI services such as ChatGPT, Claude, and similar tools.
+- Building a personal network environment that benefits from a stable egress IP.
+- Experimenting with low-cost VPS network architecture.
+- Learning and practicing Xray Reality, NAT VPS, and entry/exit separation design.
+
+Actual availability depends on egress IP quality, target service policies, and the user's local network environment. This project does not guarantee access to any specific service.
 
 ---
 
@@ -159,6 +165,8 @@ Basic Mode uses the VPS native public exit.
 ## ISP Residential Exit Mode
 
 ISP Residential Exit Mode routes Xray traffic through an authenticated SOCKS5 ISP Residential proxy.
+
+This mode separates the entry node from the public egress. The public exit can be adjusted or replaced according to network requirements without changing the entry architecture.
 
 ### Advantages
 
@@ -195,72 +203,18 @@ Before deployment, check:
 
 ---
 
-# Tested Environment (Not a Recommendation)
-
-⚠️ This section only documents the author's test environment.
-
-It is not:
-
-- A provider recommendation
-- A partnership
-- A guarantee of availability or performance
-
-Prices, inventory, routes, and IP reputation may change over time.
-
-## Entry Node (NAT VPS)
-
-Purpose:
-
-Used as the Xray Reality entry node.
-
-Test environment:
-
-- Type: NAT VPS
-- Region: Los Angeles, US
-- Characteristics:
-  - Low cost
-  - Low resource usage
-  - Optimized network route
-
-Reference:
-
-https://dash.fuckip.me
-
-Note:
-
-This environment is only a test case.
-
-Users may choose any NAT VPS that meets their own requirements.
-
----
-
-## Exit Node (ISP Residential SOCKS5)
-
-Purpose:
-
-Provides the final public egress IP.
-
-Test environment:
-
-- Type: Static ISP Residential SOCKS5
-- Region: Los Angeles, US
-
-Reference:
-
-https://www.711proxy.com/signup?code=20560D
-
-Selection reasons:
-
-- Supports IP range inspection
-- Easier region selection
-
-Alternative:
-
-Users may choose other ISP Residential Proxy providers.
-
----
-
 # Quick Start
+
+NAT Reality Bridge provides an automation tool that turns the Xray Reality deployment process into an interactive installer.
+
+The installer covers:
+
+- Environment detection
+- Config generation
+- Reality parameter generation
+- Node URI generation
+- QR code output
+- Outbound testing
 
 Clone the repository:
 
@@ -295,7 +249,7 @@ After verifying the script and NAT port mapping:
 bash scripts/install.sh
 ```
 
-The v1.1.0 installer is interactive.
+The v1.2.0 installer is interactive.
 
 It will check:
 
@@ -318,6 +272,35 @@ Additional tools:
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
+bash scripts/test-outbound.sh
+```
+
+# Installation Output / 安装完成说明
+
+After a successful install, client files are generated under:
+
+```text
+/root/nat-reality-bridge/
+```
+
+Expected files:
+
+- `node.txt`: VLESS URI and client parameters.
+- `node.png`: QR code for the VLESS URI, when `qrencode` is available.
+- `README.txt`: client import notes for Android, Windows, and iOS.
+- `install-summary.txt`: install result, mode, Xray status, config test result, and install time.
+
+Example completion output:
+
+```text
+NAT Reality Bridge v1.2.0
+
+Installation completed
+
+Status:
+[OK] Xray running
+[OK] Configuration valid
+[OK] Outbound test passed
 ```
 
 ---
@@ -329,6 +312,7 @@ bash scripts/backup.sh
 - [Client URI](docs/client-uri.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Tested Environment](docs/providers.md)
+- [User Guide](docs/user-guide.md)
 - [中文文档](README.zh-CN.md)
 
 ---
@@ -356,6 +340,17 @@ Before publishing a fork, scan for:
 ---
 
 # Roadmap
+
+## v1.2.0
+
+- Beginner-friendly installation completion screen
+- Terminal and PNG QR code generation
+- Client file directory under `/root/nat-reality-bridge/`
+- Outbound test helper
+- Install summary and install log
+- Uninstall helper
+- Safe update helper without automatic Xray-core replacement
+- User guide for first-time VPS users
 
 ## v1.1.0
 

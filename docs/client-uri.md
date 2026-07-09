@@ -6,7 +6,13 @@ Language: [English](#english) | [中文](#中文)
 
 v2rayNG, Karing, and compatible clients can import nodes using a VLESS URI.
 
-Since v1.1.0, `scripts/install.sh` prints the generated VLESS URI after a successful deployment and stores a local copy under `/root/nat-reality-bridge-node.txt`.
+Since v1.2.0, `scripts/install.sh` prints the generated VLESS URI after a successful deployment and stores client files under `/root/nat-reality-bridge/`.
+
+Expected files:
+
+- `node.txt`: VLESS URI and client parameters.
+- `node.png`: QR code when `qrencode` is available.
+- `README.txt`: client import notes.
 
 Template:
 
@@ -54,6 +60,12 @@ vless://UUID@PUBLIC_HOST:PUBLIC_PORT?encryption=none&flow=xtls-rprx-vision&secur
 - `type`: `tcp`。
 - `spx`: spiderX，模板使用 `/`，URI 中编码为 `%2F`。
 
-从 v1.1.0 开始，`scripts/install.sh` 会在部署成功后输出生成的 VLESS URI，并在 `/root/nat-reality-bridge-node.txt` 保存一份本地副本。
+从 v1.2.0 开始，`scripts/install.sh` 会在部署成功后输出生成的 VLESS URI，并在 `/root/nat-reality-bridge/` 保存客户端文件。
+
+预计文件：
+
+- `node.txt`：VLESS URI 和客户端参数。
+- `node.png`：安装 `qrencode` 后生成的二维码。
+- `README.txt`：客户端导入说明。
 
 不要把 Reality `privateKey` 写入客户端 URI。

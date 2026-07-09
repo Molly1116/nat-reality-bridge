@@ -53,6 +53,34 @@ If external TCP connects but the server sees nothing, check provider NAT mapping
 
 If several external ports all fail with the same EOF, but an isolated Reality instance with a different target works, the problem is more likely Reality parameter compatibility than NAT incompatibility.
 
+### QR Code Generation
+
+If `node.png` is missing, check whether `qrencode` is installed:
+
+```bash
+command -v qrencode
+```
+
+The installer can continue without QR code generation. The VLESS URI remains available in `/root/nat-reality-bridge/node.txt`.
+
+### Outbound Test
+
+Use:
+
+```bash
+bash scripts/test-outbound.sh
+```
+
+If ISP mode fails, verify SOCKS5 host, port, username, password, provider reachability, and whether the provider allows the server IP to connect.
+
+### Install Log
+
+Installation logs are written to:
+
+```text
+/var/log/nat-reality-bridge-install.log
+```
+
 ## 中文
 
 以下问题来自真实部署过程，但已去除所有生产参数。
@@ -103,3 +131,31 @@ spiderX: /
 ### 参数兼容问题
 
 如果多个外部端口都表现为同样 EOF，而隔离测试实例使用另一组 Reality 参数成功，说明问题更可能是 Reality 参数组合，而不是 NAT 环境本身。
+
+### 二维码生成
+
+如果缺少 `node.png`，先检查是否安装了 `qrencode`：
+
+```bash
+command -v qrencode
+```
+
+安装器可以在没有二维码的情况下继续完成部署。VLESS URI 仍然保存在 `/root/nat-reality-bridge/node.txt`。
+
+### 出口检测
+
+使用：
+
+```bash
+bash scripts/test-outbound.sh
+```
+
+如果 ISP 模式失败，请检查 SOCKS5 地址、端口、用户名、密码、供应商可达性，以及供应商是否允许当前服务器 IP 连接。
+
+### 安装日志
+
+安装日志路径：
+
+```text
+/var/log/nat-reality-bridge-install.log
+```

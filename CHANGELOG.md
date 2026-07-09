@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.2.0
+
+- Added beginner-friendly installation completion summary.
+- Added terminal and PNG QR code generation.
+- Added `/root/nat-reality-bridge/` client output directory.
+- Added `install-summary.txt` and install logging.
+- Added outbound test helper.
+- Added uninstall helper.
+- Added safe update helper without automatic Xray-core replacement.
+- Added beginner user guide.
+
 ## v1.1.0
 
 - Added interactive installer.

@@ -6,7 +6,9 @@ Language: [English](#english) | [中文](#中文)
 
 This document describes the generic deployment flow. Generate fresh values on every new server. Do not reuse production node parameters.
 
-Since v1.1.0, `scripts/install.sh` is an interactive installer. It performs environment checks, asks for the deployment mode, generates fresh Reality values, tests a temporary config, backs up the old config, and restarts Xray only after validation succeeds.
+Since v1.2.0, `scripts/install.sh` is an interactive installer. It performs environment checks, asks for the deployment mode, generates fresh Reality values, tests a temporary config, backs up the old config, and restarts Xray only after validation succeeds.
+
+After installation, client files and the install summary are written to `/root/nat-reality-bridge/`.
 
 ### 1. Environment Check
 
@@ -109,11 +111,20 @@ journalctl -u xray --no-pager -n 80
 
 In Basic Mode, the final client exit IP should match the VPS native exit. In ISP Residential Exit Mode, the final client exit IP should match the SOCKS5 ISP exit IP.
 
+v1.2.0 also provides:
+
+```bash
+bash scripts/test-outbound.sh
+bash scripts/health-check.sh
+```
+
 ## 中文
 
 本文描述通用部署流程。所有值都应在新机器上重新生成，不要复用旧节点参数。
 
-从 v1.1.0 开始，`scripts/install.sh` 是交互式安装器。它会执行环境检查、询问部署模式、生成新的 Reality 参数、测试临时配置、备份旧配置，并且只在验证成功后重启 Xray。
+从 v1.2.0 开始，`scripts/install.sh` 是交互式安装器。它会执行环境检查、询问部署模式、生成新的 Reality 参数、测试临时配置、备份旧配置，并且只在验证成功后重启 Xray。
+
+安装完成后，客户端文件和安装总结会写入 `/root/nat-reality-bridge/`。
 
 ### 1. 环境检查
 
@@ -215,3 +226,10 @@ journalctl -u xray --no-pager -n 80
 ```
 
 Basic Mode 下，最终客户端出口 IP 应等于 VPS 原生出口。ISP Residential Exit Mode 下，最终客户端出口 IP 应等于 SOCKS5 ISP 出口 IP。
+
+v1.2.0 还提供：
+
+```bash
+bash scripts/test-outbound.sh
+bash scripts/health-check.sh
+```

@@ -4,6 +4,7 @@ set -euo pipefail
 XRAY_BIN="${XRAY_BIN:-/usr/local/bin/xray}"
 XRAY_CONFIG="${XRAY_CONFIG:-/etc/xray/config.json}"
 SERVICE_NAME="${SERVICE_NAME:-xray}"
+APP_DIR="${APP_DIR:-/root/nat-reality-bridge}"
 
 echo "== NAT Reality Bridge health check =="
 
@@ -56,3 +57,13 @@ if command -v curl >/dev/null; then
 else
   echo "curl is not available"
 fi
+
+echo
+echo "NAT Reality Bridge files:"
+for p in "$APP_DIR/node.txt" "$APP_DIR/node.png" "$APP_DIR/README.txt" "$APP_DIR/install-summary.txt"; do
+  if [ -e "$p" ]; then
+    echo "found: $p"
+  else
+    echo "missing: $p"
+  fi
+done
