@@ -9,7 +9,7 @@ Low-resource Xray Reality deployment pattern for NAT VPS environments.
 
 > 中文用户请阅读：[README.zh-CN.md](README.zh-CN.md)
 
-NAT Reality Bridge is an open-source deployment template for building a lightweight Xray Reality entry node on NAT VPS infrastructure, then routing traffic through a SOCKS5 ISP or residential exit.
+NAT Reality Bridge is an open-source lightweight automation tool for building a minimal Xray Reality entry node on NAT VPS infrastructure, then optionally routing traffic through a SOCKS5 ISP or residential exit.
 
 It is not a node-selling project, not a commercial proxy service, and not a turnkey bypass product. It is a reusable network architecture template for self-managed infrastructure.
 
@@ -24,7 +24,9 @@ Exit node handles IP quality.
 
 A low-cost NAT VPS can be valuable as an entry node when it has good network routes, such as optimized regional connectivity. However, the entry VPS IP itself may not be suitable as the final egress IP. NAT Reality Bridge separates these two concerns.
 
-## Architecture
+Since v1.1.0, this project includes an interactive installer, deployment modes, automatic VLESS URI generation, backup helpers, and a health-check script.
+
+## Deployment Architecture
 
 ```text
 Client
@@ -45,7 +47,7 @@ ISP Residential Exit
 Internet
 ```
 
-The NAT VPS entry node receives client traffic through provider-side port forwarding and runs a minimal Xray-core service. The SOCKS5 outbound provides the final ISP or residential egress IP.
+The NAT VPS entry node receives client traffic through provider-side port forwarding and runs a minimal Xray-core service. In ISP Residential Exit Mode, the SOCKS5 outbound provides the final ISP or residential egress IP.
 
 ## Design Philosophy
 
@@ -81,6 +83,11 @@ This keeps the entry node cheap and small while allowing the exit identity to be
 - Official Xray-core
 - VLESS Reality
 - TCP Vision, `xtls-rprx-vision`
+- Interactive installer
+- Basic Mode with VPS native exit
+- ISP Residential Exit Mode with SOCKS5 outbound
+- Automatic VLESS URI generation
+- Health check and backup helpers
 - SOCKS5 outbound
 - ISP residential exit architecture
 - systemd-managed service
@@ -88,6 +95,37 @@ This keeps the entry node cheap and small while allowing the exit identity to be
 - No database
 - No Node.js
 - No web panel by default
+
+## Deployment Modes
+
+### Basic Mode
+
+Basic Mode uses the VPS native exit.
+
+Pros:
+
+- Free after VPS purchase
+- Simple deployment
+- No extra proxy dependency
+
+Cons:
+
+- Exit IP quality depends on the VPS provider and IP range
+
+### ISP Residential Exit Mode
+
+ISP Residential Exit Mode routes all Xray traffic to an authenticated SOCKS5 ISP or residential exit.
+
+Pros:
+
+- Controllable egress IP
+- Exit can be replaced independently
+- Entry and exit roles stay separated
+
+Cons:
+
+- Requires an additional proxy cost
+- Requires SOCKS5 credential management
 
 ## Supported Environment
 
@@ -136,7 +174,16 @@ Run only after reviewing the script and preparing NAT port forwarding:
 bash scripts/install.sh
 ```
 
-The installer is interactive. Sensitive values such as SOCKS5 credentials are entered at runtime and are not stored in this repository.
+The v1.1.0 installer is interactive. It checks root permission, Debian version, CPU architecture, systemd, memory, and disk space before deployment. It then lets you choose Basic Mode or ISP Residential Exit Mode.
+
+Sensitive values such as SOCKS5 credentials are entered at runtime and are not stored in this repository.
+
+Auxiliary tools:
+
+```bash
+bash scripts/health-check.sh
+bash scripts/backup.sh
+```
 
 ## Documentation
 
@@ -144,6 +191,7 @@ The installer is interactive. Sensitive values such as SOCKS5 credentials are en
 - [Deployment](docs/deployment.md)
 - [Client URI](docs/client-uri.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Tested Environment](docs/providers.md)
 - [中文 README](README.zh-CN.md)
 
 ## Security Notes
@@ -161,6 +209,15 @@ Never commit:
 Before publishing a fork, scan for IP addresses, UUID-like strings, private keys, proxy credentials, and node URIs.
 
 ## Roadmap
+
+v1.1.0:
+
+- Interactive installer
+- Basic deployment mode
+- ISP Residential Exit mode
+- Automatic VLESS URI generation
+- Health check tools
+- Tested environment documentation
 
 v1.0.0:
 

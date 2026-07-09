@@ -6,6 +6,11 @@ Language: [English](#english) | [中文](#中文)
 
 NAT Reality Bridge uses a separated entry and exit architecture. The entry node runs on a low-resource NAT VPS and handles client connectivity, Reality handshake, and route quality. The exit node is provided by a SOCKS5 ISP or residential proxy and handles the final public egress IP.
 
+In v1.1.0, the installer supports two deployment modes:
+
+- Basic Mode: the NAT VPS is both entry and native exit.
+- ISP Residential Exit Mode: the NAT VPS is the entry node, and SOCKS5 provides the final exit.
+
 ```text
 Client
   |
@@ -53,6 +58,11 @@ The design requires only one Xray process and avoids Docker, databases, web pane
 ## 中文
 
 NAT Reality Bridge 采用入口/出口分离架构。入口节点运行在低资源 NAT VPS 上，负责客户端接入、Reality 握手和网络路径质量；出口节点通过 SOCKS5 ISP 或家宽代理提供最终公网出口 IP。
+
+在 v1.1.0 中，安装器支持两种部署模式：
+
+- Basic Mode：NAT VPS 同时作为入口和原生出口。
+- ISP Residential Exit Mode：NAT VPS 作为入口节点，SOCKS5 提供最终出口。
 
 ```text
 Client
