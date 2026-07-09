@@ -262,7 +262,7 @@ v1.3.0 增加安装器资源模式：
 - 二维码输出
 - 出口检测
 
-普通用户首次部署不应默认依赖 Git。未来版本可能提供更轻量的下载式安装路径，但当前文档不提供未经验证的一键安装命令。
+普通用户首次部署不应默认依赖 Git。`scripts/install.sh` 是自包含安装器，可以直接从 GitHub Raw 下载后运行。
 
 执行任何来源的安装脚本前，请先确认：
 
@@ -273,6 +273,34 @@ v1.3.0 增加安装器资源模式：
 - 已审查安装脚本内容。
 - 已确认存在 `curl` 或 `wget`。
 - 已确认存在 `unzip` 和 `sha256sum`。
+
+## User Installation Workflow
+
+普通用户无需 Git。使用 `curl` 下载安装器：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+或使用 `wget`：
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+执行前先审查脚本：
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+运行安装器：
+
+```bash
+bash install.sh
+```
+
+如果 VPS 上既没有 `curl` 也没有 `wget`，可以在其他机器下载 GitHub 仓库 ZIP，解压后上传到 VPS，再执行 `bash scripts/install.sh`。
 
 ## Developer Workflow
 

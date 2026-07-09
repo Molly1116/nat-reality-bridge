@@ -51,7 +51,27 @@ Do not publish SSH passwords or private keys.
 
 Minimal Debian NAT VPS images may not include Git. Git is not required to run NAT Reality Bridge; it is only one way to fetch the project source code.
 
-Future versions may provide a lighter download-based installation path. This guide does not provide an unverified one-command installer.
+For normal users, download the self-contained installer directly from GitHub Raw.
+
+With `curl`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+Or with `wget`:
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+Review the installer before running it:
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+If neither `curl` nor `wget` is available, download the GitHub repository ZIP from another machine, extract it, upload the project directory to the VPS, and use the developer-style path below.
 
 Developer workflow:
 
@@ -67,6 +87,14 @@ sed -n '1,260p' scripts/install.sh
 ```
 
 ## 4. Run the installer
+
+If you downloaded the single-file installer:
+
+```bash
+bash install.sh
+```
+
+If you cloned or uploaded the full project directory:
 
 ```bash
 bash scripts/install.sh
@@ -198,7 +226,27 @@ ssh -p CHANGE_ME_SSH_PORT CHANGE_ME_USER@CHANGE_ME_SERVER
 
 Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bridge 的运行依赖，只是获取项目源码的一种方式。
 
-未来版本可能提供更轻量的下载式安装路径。本文档不提供未经验证的一键安装命令。
+普通用户可以直接从 GitHub Raw 下载自包含安装器。
+
+使用 `curl`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+或使用 `wget`：
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+执行前先审查安装脚本：
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+如果 VPS 上既没有 `curl` 也没有 `wget`，可以在其他机器下载 GitHub 仓库 ZIP，解压后上传项目目录到 VPS，再使用下面的开发者路径。
 
 开发者流程：
 
@@ -214,6 +262,14 @@ sed -n '1,260p' scripts/install.sh
 ```
 
 ## 4. 执行安装
+
+如果下载的是单文件安装器：
+
+```bash
+bash install.sh
+```
+
+如果使用的是完整项目目录：
 
 ```bash
 bash scripts/install.sh

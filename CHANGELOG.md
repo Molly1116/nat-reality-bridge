@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.1
+
+- Document the normal user installation workflow without requiring Git.
+- Add GitHub Raw `curl` and `wget` installer download examples.
+- Clarify that `git clone` is mainly for source review, development, forks, and contributions.
+- Document the repository ZIP fallback when neither `curl` nor `wget` is available.
+
 ## v1.3.0
 
 - Add EXTREME_LOW_RESOURCE, LOW_RESOURCE, and NORMAL installer modes.

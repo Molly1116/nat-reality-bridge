@@ -66,7 +66,33 @@ bash scripts/install.sh
 
 Review the script before running it. Do not execute installation scripts blindly on a production machine.
 
-For normal users, do not assume Git is available. Future versions may provide a lighter download-based installation path. Until then, use Git clone mainly for source review, development, forks, and contributions.
+For normal users, do not assume Git is available. `scripts/install.sh` is self-contained and can be downloaded directly from GitHub Raw.
+
+User installation workflow:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+Or:
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+Review the script before running it:
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+Run the installer:
+
+```bash
+bash install.sh
+```
+
+If neither `curl` nor `wget` is available, download the GitHub repository ZIP from another machine, extract it, upload the project directory to the VPS, and run `bash scripts/install.sh`.
 
 Developer workflow:
 
@@ -205,7 +231,33 @@ bash scripts/install.sh
 
 执行前必须审查脚本，不要在生产机器上盲目运行安装脚本。
 
-普通用户流程不应默认假设 Git 可用。未来版本可能提供更轻量的下载式安装路径；在此之前，Git clone 主要用于源码审查、开发、fork 和贡献。
+普通用户流程不应默认假设 Git 可用。`scripts/install.sh` 是自包含安装器，可以直接从 GitHub Raw 下载后运行。
+
+普通用户安装流程：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+或：
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+执行前先审查脚本：
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+运行安装器：
+
+```bash
+bash install.sh
+```
+
+如果 VPS 上既没有 `curl` 也没有 `wget`，可以在其他机器下载 GitHub 仓库 ZIP，解压后上传项目目录到 VPS，再执行 `bash scripts/install.sh`。
 
 开发者流程：
 

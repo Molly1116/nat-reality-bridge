@@ -283,7 +283,7 @@ The installer covers:
 - QR code output
 - Outbound testing
 
-For normal users, the first deployment path should not assume Git is already installed. Future versions may provide a lighter download-based installation path, but this repository does not document an unverified one-command installer yet.
+For normal users, the first deployment path should not assume Git is already installed. `scripts/install.sh` is self-contained and can be downloaded directly from GitHub Raw.
 
 Use the checklist below before running the installer from any source:
 
@@ -294,6 +294,34 @@ Use the checklist below before running the installer from any source:
 - Review the install script before execution.
 - Confirm `curl` or `wget` exists.
 - Confirm `unzip` and `sha256sum` exist.
+
+## User Installation Workflow
+
+Download the installer with `curl`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+```
+
+Or use `wget`:
+
+```bash
+wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
+```
+
+Review the script before running it:
+
+```bash
+sed -n '1,220p' install.sh
+```
+
+Run the installer:
+
+```bash
+bash install.sh
+```
+
+If neither `curl` nor `wget` exists on the VPS, download the repository ZIP from GitHub on another machine, upload the extracted project directory to the VPS, and run `bash scripts/install.sh`.
 
 ## Developer Workflow
 
