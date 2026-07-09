@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.1
+
+- Restore example test environment documentation.
+- Add reproducible deployment references.
+- Improve README clarity.
+
 ## v1.2.0
 
 - Added beginner-friendly installation completion summary.

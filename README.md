@@ -144,6 +144,60 @@ Actual availability depends on egress IP quality, target service policies, and t
 
 ---
 
+# 测试环境参考 / Example Test Environment
+
+This project does not recommend any provider.
+
+The following environments are only used by the author to test NAT Reality Bridge, validate the architecture, and help users reproduce the deployment flow. Pricing, inventory, routes, and service quality may change over time. Please evaluate providers independently.
+
+## NAT VPS Entry Node
+
+Purpose:
+
+Used as the Xray Reality entry node.
+
+Test environment:
+
+- Type: NAT VPS
+- Region: Los Angeles, US
+- Characteristics: low cost, low memory, optimized route
+
+Reference:
+
+https://dash.fuckip.me
+
+Note:
+
+This machine is only used for testing. Users may choose any other NAT VPS that meets their own requirements.
+
+---
+
+## ISP Residential Exit
+
+Purpose:
+
+Provides the final public egress IP.
+
+Test environment:
+
+- Type: Static ISP Residential SOCKS5
+- Region: Los Angeles, US
+
+Reference:
+
+https://www.711proxy.com/signup?code=20560D
+
+Selection reasons:
+
+- Supports IP range inspection
+- Makes region filtering easier
+
+Note:
+
+Users may choose other ISP Residential Proxy services.
+
+---
+
 # Deployment Modes
 
 ## Basic Mode
