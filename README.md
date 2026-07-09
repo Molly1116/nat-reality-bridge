@@ -1,32 +1,54 @@
 # NAT Reality Bridge
 
-## 🚀 0.2美元 NAT VPS 极限优化方案：9929/CMI 三网优化入口 + ISP 家宽出口分离架构
+## 🚀 $0.2 NAT VPS Extreme Optimization: 9929/CMI Entry + ISP Residential Exit Architecture
 
-**$0.2 NAT VPS Extreme Optimization**  
-**9929/CMI Entry + ISP Residential Exit Architecture**
+**0.2美元 NAT VPS 极限优化方案：9929/CMI 三网优化入口 + ISP住宅出口分离架构**
 
-Low-resource Xray Reality deployment pattern for NAT VPS environments.
+A lightweight Xray Reality deployment architecture for low-resource NAT VPS environments.
 
-> 中文用户请阅读：[README.zh-CN.md](README.zh-CN.md)
+> 中文用户请查看：[README.zh-CN.md](README.zh-CN.md)
 
-NAT Reality Bridge is an open-source lightweight automation tool for building a minimal Xray Reality entry node on NAT VPS infrastructure, then optionally routing traffic through a SOCKS5 ISP or residential exit.
+---
 
-It is not a node-selling project, not a commercial proxy service, and not a turnkey bypass product. It is a reusable network architecture template for self-managed infrastructure.
+NAT Reality Bridge is a lightweight open-source automation tool for building minimal Xray Reality entry nodes on low-resource NAT VPS infrastructure, with optional SOCKS5 ISP Residential exit support.
 
-## Overview
+This project is not a node-selling service, proxy subscription service, or hosted solution.
 
-This project focuses on one core idea:
+It is a reusable infrastructure template for personal deployments and network architecture experiments.
+
+---
+
+# Overview
+
+The core idea:
 
 ```text
-Entry node handles route quality.
-Exit node handles IP quality.
+Entry node optimizes connectivity.
+Exit node optimizes IP reputation.
 ```
 
-A low-cost NAT VPS can be valuable as an entry node when it has good network routes, such as optimized regional connectivity. However, the entry VPS IP itself may not be suitable as the final egress IP. NAT Reality Bridge separates these two concerns.
+Low-cost NAT VPS instances can provide excellent network paths, such as optimized routes, low latency, or premium upstream connectivity.
 
-Since v1.1.0, this project includes an interactive installer, deployment modes, automatic VLESS URI generation, backup helpers, and a health-check script.
+However, the VPS public IP may not always be suitable as the final Internet exit.
 
-## Deployment Architecture
+NAT Reality Bridge separates:
+
+- Entry network quality
+- Exit IP quality
+
+Instead of searching for an expensive "perfect VPS", this architecture combines different resources and optimizes each part independently.
+
+Starting from v1.1.0, this project provides:
+
+- Interactive installer
+- Two deployment modes
+- Automatic VLESS URI generation
+- Backup utilities
+- Health check tools
+
+---
+
+# Architecture
 
 ```text
 Client
@@ -47,114 +69,213 @@ ISP Residential Exit
 Internet
 ```
 
-The NAT VPS entry node receives client traffic through provider-side port forwarding and runs a minimal Xray-core service. In ISP Residential Exit Mode, the SOCKS5 outbound provides the final ISP or residential egress IP.
+The NAT VPS entry node receives client traffic through provider-side port forwarding and runs a minimal Xray-core instance.
 
-## Design Philosophy
+In ISP Residential Exit Mode, SOCKS5 outbound provides the final ISP Residential egress IP.
 
-A traditional single-VPS design asks one server to handle everything:
+Core concept:
 
-- Network route quality
-- Public egress IP reputation
+> Separate network connectivity optimization from exit IP reputation optimization.
+
+---
+
+# Design Philosophy
+
+Traditional single-server deployments usually require one VPS to handle:
+
+- Network routing
+- Public exit IP
 - Service deployment
 
-That is difficult to optimize and often expensive. A VPS with good routes may have a poor egress IP. A high-quality residential or ISP IP may not provide a good route to the client.
+This creates trade-offs:
 
-NAT Reality Bridge separates the roles:
+- Good routes do not always mean good exit IP reputation.
+- Good exit IPs do not always provide good client connectivity.
+- Combining both requirements can become expensive.
 
-Entry node responsibilities:
+NAT Reality Bridge separates responsibilities.
+
+## Entry Node
+
+Responsible for:
 
 - NAT port forwarding
 - Network path quality
 - VLESS Reality entry
-- Minimal Xray runtime
+- Minimal Xray runtime environment
 
-Exit node responsibilities:
+## Exit Node
 
-- ISP residential IP
+Responsible for:
+
+- ISP Residential IP
 - IP reputation
 - Final Internet egress
 
-This keeps the entry node cheap and small while allowing the exit identity to be replaced independently.
+This allows the entry node to remain low-cost and lightweight while the exit identity can be replaced independently.
 
-## Features
+---
+
+# Features
 
 - NAT VPS support
-- Low resource optimization
+- Low-resource optimization
 - Official Xray-core
 - VLESS Reality
-- TCP Vision, `xtls-rprx-vision`
+- TCP Vision (`xtls-rprx-vision`)
 - Interactive installer
-- Basic Mode with VPS native exit
-- ISP Residential Exit Mode with SOCKS5 outbound
+- Basic Mode: VPS native exit
+- ISP Residential Exit Mode: SOCKS5 residential exit
 - Automatic VLESS URI generation
-- Health check and backup helpers
-- SOCKS5 outbound
-- ISP residential exit architecture
-- systemd-managed service
+- Health check utilities
+- Backup utilities
+- SOCKS5 outbound support
+- systemd management
 - No Docker
 - No database
 - No Node.js
 - No web panel by default
 
-## Deployment Modes
+---
 
-### Basic Mode
+# Deployment Modes
 
-Basic Mode uses the VPS native exit.
+## Basic Mode
 
-Pros:
+Basic Mode uses the VPS native public exit.
 
-- Free after VPS purchase
-- Simple deployment
-- No extra proxy dependency
+### Advantages
 
-Cons:
+- No additional proxy cost
+- Simplest deployment
+- Suitable for testing and personal use
+
+### Limitations
 
 - Exit IP quality depends on the VPS provider and IP range
 
-### ISP Residential Exit Mode
+---
 
-ISP Residential Exit Mode routes all Xray traffic to an authenticated SOCKS5 ISP or residential exit.
+## ISP Residential Exit Mode
 
-Pros:
+ISP Residential Exit Mode routes Xray traffic through an authenticated SOCKS5 ISP Residential proxy.
 
-- Controllable egress IP
-- Exit can be replaced independently
-- Entry and exit roles stay separated
+### Advantages
 
-Cons:
+- Controllable exit IP
+- Replaceable exit identity
+- Separate entry and exit optimization
 
-- Requires an additional proxy cost
-- Requires SOCKS5 credential management
+### Limitations
 
-## Supported Environment
+- Requires additional proxy cost
+- Requires managing SOCKS5 credentials
+
+---
+
+# Supported Environment
 
 Recommended baseline:
 
 - Debian 12 or Debian 13
 - Linux x86_64
-- Low RAM VPS
+- Low-memory VPS
 - NAT VPS with provider-side TCP port forwarding
 - systemd available
 
-The template is designed for constrained servers. Always check memory, disk, architecture, NAT mapping, and firewall state before deployment.
+This project targets resource-constrained servers.
 
-## Quick Start
+Before deployment, check:
 
-Clone the project:
+- Memory
+- Disk space
+- CPU architecture
+- NAT mapping
+- Firewall configuration
+
+---
+
+# Tested Environment (Not a Recommendation)
+
+⚠️ This section only documents the author's test environment.
+
+It is not:
+
+- A provider recommendation
+- A partnership
+- A guarantee of availability or performance
+
+Prices, inventory, routes, and IP reputation may change over time.
+
+## Entry Node (NAT VPS)
+
+Purpose:
+
+Used as the Xray Reality entry node.
+
+Test environment:
+
+- Type: NAT VPS
+- Region: Los Angeles, US
+- Characteristics:
+  - Low cost
+  - Low resource usage
+  - Optimized network route
+
+Reference:
+
+https://dash.fuckip.me
+
+Note:
+
+This environment is only a test case.
+
+Users may choose any NAT VPS that meets their own requirements.
+
+---
+
+## Exit Node (ISP Residential SOCKS5)
+
+Purpose:
+
+Provides the final public egress IP.
+
+Test environment:
+
+- Type: Static ISP Residential SOCKS5
+- Region: Los Angeles, US
+
+Reference:
+
+https://www.711proxy.com/signup?code=20560D
+
+Selection reasons:
+
+- Supports IP range inspection
+- Easier region selection
+
+Alternative:
+
+Users may choose other ISP Residential Proxy providers.
+
+---
+
+# Quick Start
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/Molly1116/nat-reality-bridge.git
 cd nat-reality-bridge
 ```
 
-Review the installer before running it:
+Review the installer before execution:
 
 ```bash
 sed -n '1,220p' scripts/install.sh
 ```
 
-Do not execute scripts blindly. First check the VPS environment:
+Check your VPS environment:
 
 ```bash
 date -Is
@@ -168,33 +289,51 @@ df -hT
 systemd-detect-virt -v || true
 ```
 
-Run only after reviewing the script and preparing NAT port forwarding:
+After verifying the script and NAT port mapping:
 
 ```bash
 bash scripts/install.sh
 ```
 
-The v1.1.0 installer is interactive. It checks root permission, Debian version, CPU architecture, systemd, memory, and disk space before deployment. It then lets you choose Basic Mode or ISP Residential Exit Mode.
+The v1.1.0 installer is interactive.
+
+It will check:
+
+- Root privileges
+- Debian version
+- CPU architecture
+- systemd availability
+- Memory
+- Disk space
+
+Then it allows users to choose:
+
+- Basic Mode
+- ISP Residential Exit Mode
 
 Sensitive values such as SOCKS5 credentials are entered at runtime and are not stored in this repository.
 
-Auxiliary tools:
+Additional tools:
 
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
 ```
 
-## Documentation
+---
+
+# Documentation
 
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Client URI](docs/client-uri.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Tested Environment](docs/providers.md)
-- [中文 README](README.zh-CN.md)
+- [中文文档](README.zh-CN.md)
 
-## Security Notes
+---
+
+# Security
 
 Never commit:
 
@@ -202,15 +341,23 @@ Never commit:
 - Production UUID
 - SSH credentials
 - Proxy credentials
-- Live VLESS node URI
+- Real VLESS node links
 - Personal server configuration
 - Provider account information
 
-Before publishing a fork, scan for IP addresses, UUID-like strings, private keys, proxy credentials, and node URIs.
+Before publishing a fork, scan for:
 
-## Roadmap
+- IP addresses
+- UUID-like strings
+- Private keys
+- Proxy credentials
+- Node URIs
 
-v1.1.0:
+---
+
+# Roadmap
+
+## v1.1.0
 
 - Interactive installer
 - Basic deployment mode
@@ -219,20 +366,23 @@ v1.1.0:
 - Health check tools
 - Tested environment documentation
 
-v1.0.0:
+## v1.0.0
 
 - Documentation
 - NAT VPS architecture template
 - Xray Reality deployment template
 - SOCKS5 outbound model
 
-Future:
+## Future
 
-- Health check helper
-- Backup restore helper
-- More automation around validation
-- More provider-neutral troubleshooting notes
+- Enhanced automated diagnostics
+- Improved backup and recovery
+- More deployment validation
+- More provider-independent troubleshooting records
+- More Linux distribution support
 
-## License
+---
+
+# License
 
 MIT License. See [LICENSE](LICENSE).
