@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.2
+
+- Clarify developer workflow and user installation workflow.
+- Add low-resource NAT VPS deployment notes.
+- Add 128MB RAM recommendation.
+- Document 64MB extreme environment limitations.
+- Improve first-time deployment documentation.
+
 ## v1.2.1
 
 - Restore example test environment documentation.

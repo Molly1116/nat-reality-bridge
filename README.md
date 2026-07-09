@@ -241,11 +241,16 @@ Recommended baseline:
 
 - Debian 12 or Debian 13
 - Linux x86_64
-- Low-memory VPS
+- 128 MB RAM or above
+- Swap recommended
 - NAT VPS with provider-side TCP port forwarding
 - systemd available
 
 This project targets resource-constrained servers.
+
+Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency of NAT Reality Bridge; it is only one way to fetch the project source code.
+
+64 MB RAM NAT VPS instances should be treated as experimental environments. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. In this class of machine, `apt install git` may be terminated by the system because of OOM. Avoid the Git clone workflow on extremely low-memory nodes.
 
 Before deployment, check:
 
@@ -270,7 +275,19 @@ The installer covers:
 - QR code output
 - Outbound testing
 
-Clone the repository:
+For normal users, the first deployment path should not assume Git is already installed. Future versions may provide a lighter download-based installation path, but this repository does not document an unverified one-command installer yet.
+
+Use the checklist below before running the installer from any source:
+
+- Confirm Debian 12/13, x86_64, and systemd.
+- Confirm memory is 128 MB or above when possible.
+- Enable or confirm swap on very small NAT VPS nodes.
+- Confirm NAT port mapping before starting Xray.
+- Review the install script before execution.
+
+## Developer Workflow
+
+Use Git clone when you want to read source code, modify scripts, build your own fork, or contribute to the project:
 
 ```bash
 git clone https://github.com/Molly1116/nat-reality-bridge.git

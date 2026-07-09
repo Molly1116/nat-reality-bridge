@@ -29,8 +29,14 @@ Confirm:
 
 - Debian 12/13 or compatible system.
 - x86_64 architecture.
+- 128 MB RAM or above is recommended.
+- Swap is recommended on low-memory nodes.
 - NAT VPS requires provider-side TCP forwarding.
 - systemd is available.
+
+Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency; it is only one way to fetch the project source code.
+
+64 MB RAM NAT VPS instances are experimental. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. `apt install git` may be killed by OOM on this class of machine, so avoid Git clone as the default workflow there.
 
 ### 2. NAT Port Mapping
 
@@ -51,6 +57,15 @@ bash scripts/install.sh
 ```
 
 Review the script before running it. Do not execute installation scripts blindly on a production machine.
+
+For normal users, do not assume Git is available. Future versions may provide a lighter download-based installation path. Until then, use Git clone mainly for source review, development, forks, and contributions.
+
+Developer workflow:
+
+```bash
+git clone https://github.com/Molly1116/nat-reality-bridge.git
+cd nat-reality-bridge
+```
 
 The installer supports two modes:
 
@@ -145,8 +160,14 @@ df -hT
 
 - 系统为 Debian 12/13 或兼容环境。
 - 架构为 x86_64。
+- 推荐 128MB RAM 或更高。
+- 小内存节点推荐启用 swap。
 - 服务端只有内网地址时，需依赖服务商 NAT 映射。
 - systemd 可用。
+
+Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是运行依赖，只是获取项目源码的一种方式。
+
+64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。`apt install git` 可能在这类机器上因为 OOM 被系统终止，因此不建议把 Git clone 作为默认流程。
 
 ### 2. NAT 端口
 
@@ -167,6 +188,15 @@ bash scripts/install.sh
 ```
 
 执行前必须审查脚本，不要在生产机器上盲目运行安装脚本。
+
+普通用户流程不应默认假设 Git 可用。未来版本可能提供更轻量的下载式安装路径；在此之前，Git clone 主要用于源码审查、开发、fork 和贡献。
+
+开发者流程：
+
+```bash
+git clone https://github.com/Molly1116/nat-reality-bridge.git
+cd nat-reality-bridge
+```
 
 安装器支持两种模式：
 

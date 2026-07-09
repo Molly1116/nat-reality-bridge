@@ -222,11 +222,16 @@ ISP Residential Exit Mode 将 Xray 流量路由到带认证的 SOCKS5 ISP Reside
 
 - Debian 12 或 Debian 13
 - Linux x86_64
-- 小内存 VPS
+- 128MB RAM 或更高
+- 推荐启用 swap
 - 支持服务商 TCP 端口映射的 NAT VPS
 - systemd 可用
 
 本模板面向资源受限服务器。
+
+Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bridge 的运行依赖，只是获取项目源码的一种方式。
+
+64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。在这类机器上，`apt install git` 可能因为 OOM 被系统终止。极低内存机器不建议使用 `git clone` 工作流。
 
 部署前必须检查：
 
@@ -249,7 +254,19 @@ ISP Residential Exit Mode 将 Xray 流量路由到带认证的 SOCKS5 ISP Reside
 - 二维码输出
 - 出口检测
 
-克隆项目：
+普通用户首次部署不应默认依赖 Git。未来版本可能提供更轻量的下载式安装路径，但当前文档不提供未经验证的一键安装命令。
+
+执行任何来源的安装脚本前，请先确认：
+
+- Debian 12/13、x86_64、systemd 可用。
+- 内存尽量为 128MB 或更高。
+- 小内存 NAT VPS 已启用或确认 swap。
+- NAT 端口映射已经配置。
+- 已审查安装脚本内容。
+
+## Developer Workflow
+
+当你需要阅读源码、修改脚本、二次开发或贡献项目时，使用 Git clone：
 
 ```bash
 git clone https://github.com/Molly1116/nat-reality-bridge.git

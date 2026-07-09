@@ -81,6 +81,27 @@ Installation logs are written to:
 /var/log/nat-reality-bridge-install.log
 ```
 
+### Git Missing Or Apt Killed On 64 MB VPS
+
+Symptoms:
+
+```text
+git: command not found
+apt install git
+Killed
+```
+
+Cause:
+
+Minimal Debian NAT VPS images may not include Git. Git is not required by Xray at runtime. On 64 MB RAM machines, `apt` and package unpacking may need more temporary memory than the VPS has, so the kernel may terminate the process.
+
+What to do:
+
+- Treat 64 MB RAM NAT VPS as experimental.
+- Prefer 128 MB RAM or above, with swap enabled.
+- Avoid the Git clone workflow on extremely low-memory machines.
+- Use Git clone mainly for source review, development, forks, and contributions.
+
 ## 中文
 
 以下问题来自真实部署过程，但已去除所有生产参数。
@@ -159,3 +180,24 @@ bash scripts/test-outbound.sh
 ```text
 /var/log/nat-reality-bridge-install.log
 ```
+
+### 64MB VPS 上 Git 缺失或 apt 被 Killed
+
+现象：
+
+```text
+git: command not found
+apt install git
+Killed
+```
+
+原因：
+
+Minimal Debian NAT VPS 默认可能没有 Git。Git 不是 Xray 运行依赖。在 64MB RAM 机器上，`apt` 和软件包解包阶段可能需要更多临时内存，系统可能会因为 OOM 终止安装进程。
+
+处理建议：
+
+- 将 64MB RAM NAT VPS 视为实验环境。
+- 优先使用 128MB RAM 或更高配置，并启用 swap。
+- 极低内存机器不建议使用 Git clone 工作流。
+- Git clone 更适合源码审查、开发、fork 和贡献。
