@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.1
+
+Documentation structure cleanup
+
+- Move provider-specific test environment references out of README.
+- Add a dedicated Chinese complete deployment guide.
+- Reformat README features into professional grouped sections.
+- Clarify README as project overview and entry point.
+- Preserve historical changelog entries.
+
+## v1.4.0
+
+Documentation restructure for first-time deployment success
+
+- Simplify README as project overview and entry page.
+- Add complete deployment guide.
+- Add full first-time deployment command flow.
+- Clarify standalone installer workflow and full repository workflow.
+- Improve service-check guidance for users without helper scripts.
+
 ## v1.3.1
 
 - Document the normal user installation workflow without requiring Git.

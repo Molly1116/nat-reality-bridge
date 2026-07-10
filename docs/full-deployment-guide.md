@@ -49,6 +49,18 @@ NAT mapping: CHANGE_ME_PUBLIC_HOST:CHANGE_ME_PUBLIC_PORT -> internal 443/TCP
 
 The provider-side NAT rule should forward one external TCP port to internal TCP port `443`.
 
+Example Test Environment:
+
+This project does not recommend any provider. The following reference is only a test environment used to validate the architecture and reproduce deployment steps. Pricing, inventory, route quality, and service quality may change.
+
+- Name: Test NAT VPS
+- Type: NAT VPS
+- Region: Los Angeles, US
+- Purpose: Xray Reality entry node
+- Reference: https://dash.fuckip.me
+
+You may use any NAT VPS that meets the requirements above.
+
 ## 3. Prepare Static ISP Residential SOCKS5 / 准备 ISP SOCKS5
 
 This step is only required for ISP Residential Exit Mode.
@@ -63,6 +75,19 @@ SOCKS5 password: CHANGE_ME_SOCKS5_PASSWORD
 ```
 
 Skip this section if you plan to use Basic Mode.
+
+Example Test Environment:
+
+This project does not recommend any provider. The following reference is only a test environment used to validate ISP Residential Exit Mode.
+
+- Name: ISP Residential SOCKS5
+- Type: Static ISP Residential SOCKS5
+- Region: Los Angeles, US
+- Purpose: final public egress IP
+- Reference: https://www.711proxy.com/signup?code=20560D
+- Selection reason: supports IP range inspection, which helps region filtering during tests
+
+You may use another ISP Residential Proxy provider. Evaluate price, availability, IP quality, and provider policy independently.
 
 ## 4. SSH Login / SSH 登录
 

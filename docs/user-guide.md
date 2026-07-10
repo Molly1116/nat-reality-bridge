@@ -2,6 +2,13 @@
 
 Language: [English](#english) | [中文](#中文)
 
+For complete first-time deployment, start with:
+
+- [Complete Deployment Guide](full-deployment-guide.md)
+- [完整中文部署教程](full-deployment-guide.zh-CN.md)
+
+This document focuses on user operation notes after you understand the main deployment flow.
+
 ## English
 
 This guide is for first-time users who want to deploy NAT Reality Bridge on a small NAT VPS.
@@ -178,6 +185,13 @@ Never publish:
 - Reality privateKey
 
 ## 中文
+
+完整首次部署流程请先阅读：
+
+- [完整中文部署教程](full-deployment-guide.zh-CN.md)
+- [Complete Deployment Guide](full-deployment-guide.md)
+
+本文档主要补充用户操作说明，不重复完整部署教程。
 
 本文面向第一次在小内存 NAT VPS 上部署 NAT Reality Bridge 的用户。
 

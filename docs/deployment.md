@@ -2,6 +2,13 @@
 
 Language: [English](#english) | [中文](#中文)
 
+First-time deployment users should start with:
+
+- [Complete Deployment Guide](full-deployment-guide.md)
+- [完整中文部署教程](full-deployment-guide.zh-CN.md)
+
+This document is a technical deployment reference. It focuses on checks, configuration paths, installation behavior, and validation details without repeating the full beginner walkthrough.
+
 ## English
 
 This document describes the generic deployment flow. Generate fresh values on every new server. Do not reuse production node parameters.
@@ -168,6 +175,13 @@ bash scripts/health-check.sh
 ```
 
 ## 中文
+
+首次部署用户建议先阅读：
+
+- [完整中文部署教程](full-deployment-guide.zh-CN.md)
+- [Complete Deployment Guide](full-deployment-guide.md)
+
+本文档定位为技术部署参考，重点记录检查项、配置路径、安装行为和验证方式，不重复完整新手教程。
 
 本文描述通用部署流程。所有值都应在新机器上重新生成，不要复用旧节点参数。
 

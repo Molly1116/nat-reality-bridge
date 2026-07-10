@@ -103,28 +103,26 @@ Core concept:
 
 # Features
 
-- NAT VPS support
-- Low-resource optimization
-- Official Xray-core
-- VLESS Reality
-- TCP Vision (`xtls-rprx-vision`)
-- Interactive installer
-- Basic Mode: VPS native exit
-- ISP Residential Exit Mode: SOCKS5 residential exit
-- Automatic VLESS URI generation
-- Health check utilities
-- Backup utilities
-- QR code generation for client import
-- Outbound IP test utility
-- Install summary file
-- Uninstall helper
-- Update safety helper
-- SOCKS5 outbound support
-- systemd management
-- No Docker
-- No database
-- No Node.js
-- No web panel by default
+### Lightweight Deployment
+
+- Supports NAT VPS environments and provider-side TCP port forwarding.
+- Optimized for 64 MB and 128 MB RAM class VPS nodes.
+- Uses official Xray-core with systemd management.
+- Does not require Docker, a database, Node.js, or a web panel.
+
+### Network Architecture
+
+- VLESS Reality TCP Vision with `xtls-rprx-vision`.
+- Basic Mode exits through the VPS native network.
+- ISP Residential Exit Mode routes traffic through authenticated SOCKS5 outbound.
+- Keeps entry network quality and exit IP quality independently replaceable.
+
+### Management
+
+- Interactive installer with environment checks and config validation.
+- Automatic VLESS URI generation and optional QR code output.
+- Backup, health-check, outbound-test, update, and uninstall helper scripts for full repository users.
+- Install summary and install log for troubleshooting.
 
 ---
 
@@ -141,60 +139,6 @@ Common use cases include:
 - Learning and practicing Xray Reality, NAT VPS, and entry/exit separation design.
 
 Actual availability depends on egress IP quality, target service policies, and the user's local network environment. This project does not guarantee access to any specific service.
-
----
-
-# 测试环境参考 / Example Test Environment
-
-This project does not recommend any provider.
-
-The following environments are only used by the author to test NAT Reality Bridge, validate the architecture, and help users reproduce the deployment flow. Pricing, inventory, routes, and service quality may change over time. Please evaluate providers independently.
-
-## NAT VPS Entry Node
-
-Purpose:
-
-Used as the Xray Reality entry node.
-
-Test environment:
-
-- Type: NAT VPS
-- Region: Los Angeles, US
-- Characteristics: low cost, low memory, optimized route
-
-Reference:
-
-https://dash.fuckip.me
-
-Note:
-
-This machine is only used for testing. Users may choose any other NAT VPS that meets their own requirements.
-
----
-
-## ISP Residential Exit
-
-Purpose:
-
-Provides the final public egress IP.
-
-Test environment:
-
-- Type: Static ISP Residential SOCKS5
-- Region: Los Angeles, US
-
-Reference:
-
-https://www.711proxy.com/signup?code=20560D
-
-Selection reasons:
-
-- Supports IP range inspection
-- Makes region filtering easier
-
-Note:
-
-Users may choose other ISP Residential Proxy services.
 
 ---
 
@@ -372,6 +316,7 @@ Status:
 # Documentation
 
 - [Complete Deployment Guide](docs/full-deployment-guide.md)
+- [完整中文部署教程](docs/full-deployment-guide.zh-CN.md)
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Client URI](docs/client-uri.md)
