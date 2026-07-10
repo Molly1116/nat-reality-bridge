@@ -272,56 +272,29 @@ Before deployment, check:
 
 # Quick Start
 
-NAT Reality Bridge provides an automation tool that turns the Xray Reality deployment process into an interactive installer.
+First-time users should start here:
 
-The installer covers:
+**[Complete Deployment Guide](docs/full-deployment-guide.md)**
 
-- Environment detection
-- Config generation
-- Reality parameter generation
-- Node URI generation
-- QR code output
-- Outbound testing
+NAT Reality Bridge provides an interactive installer for environment checks, Xray Reality config generation, node URI output, and outbound testing.
 
-For normal users, the first deployment path should not assume Git is already installed. `scripts/install.sh` is self-contained and can be downloaded directly from GitHub Raw.
-
-Use the checklist below before running the installer from any source:
-
-- Confirm Debian 12/13, x86_64, and systemd.
-- Confirm memory is 128 MB or above when possible.
-- Enable or confirm swap on very small NAT VPS nodes.
-- Confirm NAT port mapping before starting Xray.
-- Review the install script before execution.
-- Confirm `curl` or `wget` exists.
-- Confirm `unzip` and `sha256sum` exist.
-
-## User Installation Workflow
-
-Download the installer with `curl`:
+If you already understand the deployment flow, download the standalone installer with `curl`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+sed -n '1,220p' install.sh
+bash install.sh
 ```
 
 Or use `wget`:
 
 ```bash
 wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
-```
-
-Review the script before running it:
-
-```bash
 sed -n '1,220p' install.sh
-```
-
-Run the installer:
-
-```bash
 bash install.sh
 ```
 
-If neither `curl` nor `wget` exists on the VPS, download the repository ZIP from GitHub on another machine, upload the extracted project directory to the VPS, and run `bash scripts/install.sh`.
+Git is not required for normal installation. If neither `curl` nor `wget` exists on the VPS, download the repository ZIP from another machine, upload the extracted project directory to the VPS, and run `bash scripts/install.sh`.
 
 ## Developer Workflow
 
@@ -358,25 +331,7 @@ After verifying the script and NAT port mapping:
 bash scripts/install.sh
 ```
 
-The v1.2.0 installer is interactive.
-
-It will check:
-
-- Root privileges
-- Debian version
-- CPU architecture
-- systemd availability
-- Memory
-- Disk space
-
-Then it allows users to choose:
-
-- Basic Mode
-- ISP Residential Exit Mode
-
-Sensitive values such as SOCKS5 credentials are entered at runtime and are not stored in this repository.
-
-Additional tools:
+Full repository users can also use helper scripts:
 
 ```bash
 bash scripts/health-check.sh
@@ -416,6 +371,7 @@ Status:
 
 # Documentation
 
+- [Complete Deployment Guide](docs/full-deployment-guide.md)
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Client URI](docs/client-uri.md)
@@ -445,45 +401,6 @@ Before publishing a fork, scan for:
 - Private keys
 - Proxy credentials
 - Node URIs
-
----
-
-# Roadmap
-
-## v1.2.0
-
-- Beginner-friendly installation completion screen
-- Terminal and PNG QR code generation
-- Client file directory under `/root/nat-reality-bridge/`
-- Outbound test helper
-- Install summary and install log
-- Uninstall helper
-- Safe update helper without automatic Xray-core replacement
-- User guide for first-time VPS users
-
-## v1.1.0
-
-- Interactive installer
-- Basic deployment mode
-- ISP Residential Exit mode
-- Automatic VLESS URI generation
-- Health check tools
-- Tested environment documentation
-
-## v1.0.0
-
-- Documentation
-- NAT VPS architecture template
-- Xray Reality deployment template
-- SOCKS5 outbound model
-
-## Future
-
-- Enhanced automated diagnostics
-- Improved backup and recovery
-- More deployment validation
-- More provider-independent troubleshooting records
-- More Linux distribution support
 
 ---
 

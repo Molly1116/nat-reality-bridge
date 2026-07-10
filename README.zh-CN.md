@@ -251,56 +251,29 @@ v1.3.0 增加安装器资源模式：
 
 ## 快速开始
 
-本项目提供自动化部署工具，将复杂的 Xray Reality 配置流程简化为交互式安装流程。
+第一次部署用户请从这里开始：
 
-安装器包括：
+**[完整部署教程](docs/full-deployment-guide.md)**
 
-- 环境检测
-- 配置生成
-- Reality 参数生成
-- 节点生成
-- 二维码输出
-- 出口检测
+NAT Reality Bridge 提供交互式安装器，用于环境检查、Xray Reality 配置生成、节点 URI 输出和出口测试。
 
-普通用户首次部署不应默认依赖 Git。`scripts/install.sh` 是自包含安装器，可以直接从 GitHub Raw 下载后运行。
-
-执行任何来源的安装脚本前，请先确认：
-
-- Debian 12/13、x86_64、systemd 可用。
-- 内存尽量为 128MB 或更高。
-- 小内存 NAT VPS 已启用或确认 swap。
-- NAT 端口映射已经配置。
-- 已审查安装脚本内容。
-- 已确认存在 `curl` 或 `wget`。
-- 已确认存在 `unzip` 和 `sha256sum`。
-
-## User Installation Workflow
-
-普通用户无需 Git。使用 `curl` 下载安装器：
+如果你已经了解部署流程，可以使用 `curl` 下载单文件安装器：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
+sed -n '1,220p' install.sh
+bash install.sh
 ```
 
 或使用 `wget`：
 
 ```bash
 wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
-```
-
-执行前先审查脚本：
-
-```bash
 sed -n '1,220p' install.sh
-```
-
-运行安装器：
-
-```bash
 bash install.sh
 ```
 
-如果 VPS 上既没有 `curl` 也没有 `wget`，可以在其他机器下载 GitHub 仓库 ZIP，解压后上传到 VPS，再执行 `bash scripts/install.sh`。
+普通用户安装不需要 Git。如果 VPS 上既没有 `curl` 也没有 `wget`，可以在其他机器下载 GitHub 仓库 ZIP，解压后上传到 VPS，再执行 `bash scripts/install.sh`。
 
 ## Developer Workflow
 
@@ -339,25 +312,7 @@ systemd-detect-virt -v || true
 bash scripts/install.sh
 ```
 
-v1.2.0 安装脚本为交互式。
-
-它会先检查：
-
-- root 权限
-- Debian 版本
-- CPU 架构
-- systemd
-- 内存
-- 磁盘空间
-
-随后让用户选择：
-
-- Basic Mode
-- ISP Residential Exit Mode
-
-SOCKS5 凭据等敏感参数只在运行时输入，不保存在本仓库中。
-
-辅助工具：
+完整仓库用户还可以使用辅助脚本：
 
 ```bash
 bash scripts/health-check.sh
@@ -395,6 +350,7 @@ Status:
 
 ## 文档导航
 
+- [完整部署教程](docs/full-deployment-guide.md)
 - [架构说明](docs/architecture.md)
 - [部署流程](docs/deployment.md)
 - [客户端 URI](docs/client-uri.md)
@@ -422,43 +378,6 @@ Status:
 - 私钥
 - 代理凭据
 - 节点 URI
-
-## Roadmap
-
-v1.2.0：
-
-- 面向新手的安装完成界面
-- 终端二维码和 PNG 二维码生成
-- `/root/nat-reality-bridge/` 客户端文件目录
-- 出口检测工具
-- 安装总结和安装日志
-- 卸载辅助脚本
-- 不自动替换 Xray-core 的安全更新提示脚本
-- 面向首次使用 VPS 用户的指南
-
-v1.1.0：
-
-- 交互式安装器
-- Basic deployment mode
-- ISP Residential Exit mode
-- 自动生成 VLESS URI
-- 健康检查工具
-- 测试环境说明文档
-
-v1.0.0：
-
-- 文档
-- NAT VPS 架构模板
-- Xray Reality 部署模板
-- SOCKS5 outbound 模型
-
-未来：
-
-- 自动化诊断增强
-- 备份恢复增强
-- 更多验证自动化
-- 更多服务商无关的排障记录
-- 更多 Linux 环境支持
 
 ## License
 
