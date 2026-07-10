@@ -9,25 +9,33 @@
 
 ## v1.3.0
 
-- Add EXTREME_LOW_RESOURCE, LOW_RESOURCE, and NORMAL installer modes.
-- Support curl or wget as the Xray-core download tool.
-- Remove automatic apt installation for optional QR code dependency.
-- Skip non-essential outbound metadata checks on 64MB-class VPS nodes.
-- Improve documentation for Git-free, low-resource deployment paths.
+Ultra low resource optimization
+
+- Add RAM and swap detection.
+- Add EXTREME_LOW_RESOURCE and LOW_RESOURCE modes.
+- Add curl/wget fallback for downloading.
+- Remove automatic installation of heavy dependencies.
+- Optimize installation behavior for 64MB and 128MB NAT VPS.
+- Keep Xray Reality and SOCKS5 outbound architecture unchanged.
 
 ## v1.2.2
 
-- Clarify developer workflow and user installation workflow.
+Improve first-time deployment documentation
+
+- Clarify user installation workflow.
+- Explain that Git is a developer workflow tool, not a runtime dependency.
 - Add low-resource NAT VPS deployment notes.
-- Add 128MB RAM recommendation.
-- Document 64MB extreme environment limitations.
-- Improve first-time deployment documentation.
+- Add 128MB RAM recommendation and 64MB experimental environment notes.
+- Improve documentation consistency across README and user guides.
 
 ## v1.2.1
 
-- Restore example test environment documentation.
+Restore test environment documentation
+
+- Restore Example Test Environment documentation.
 - Add reproducible deployment references.
-- Improve README clarity.
+- Clarify that test environments are for architecture verification, not vendor recommendation.
+- Restore NAT VPS Entry Node and ISP Residential Exit examples.
 
 ## v1.2.0
 
