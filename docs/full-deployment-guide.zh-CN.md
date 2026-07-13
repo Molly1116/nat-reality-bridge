@@ -45,6 +45,21 @@ SSH 用户: root
 NAT 映射: CHANGE_ME_PUBLIC_HOST:CHANGE_ME_PUBLIC_PORT -> 内部 443/TCP
 ```
 
+重要提示：`公网入口地址` 和 `公网入口端口` 指的是 NAT VPS Entry Node，不是 ISP Residential SOCKS5 Exit。不要把 ISP 出口 IP 填到 Reality 节点入口参数里。
+
+```text
+NAT VPS Entry:
+- Public IP / Domain: CHANGE_ME_PUBLIC_HOST
+- Public NAT Port: CHANGE_ME_PUBLIC_PORT
+- Internal Xray Port: 443
+
+ISP Residential Exit:
+- SOCKS5 Host: CHANGE_ME_SOCKS5_HOST
+- SOCKS5 Port: CHANGE_ME_SOCKS5_PORT
+- Username: CHANGE_ME_SOCKS5_USER
+- Password: CHANGE_ME_SOCKS5_PASSWORD
+```
+
 服务商控制面板中应添加一条 TCP NAT 映射，将公网端口转发到 VPS 内部 `443` 端口。
 
 ### 测试环境参考
@@ -94,6 +109,8 @@ ssh -p CHANGE_ME_SSH_PORT root@CHANGE_ME_SERVER
 ```
 
 不要公开 SSH 密码或私钥。
+
+Linux SSH 终端输入密码时不会显示任何字符，也不会显示星号。粘贴一次密码后直接回车即可，不要因为屏幕没有变化而重复粘贴。
 
 ## 5. 系统检查
 
@@ -181,6 +198,14 @@ bash scripts/install.sh
 ```
 
 安装器会在真正应用配置前显示计划。确认参数正确后再继续。
+
+当安装器显示：
+
+```text
+Continue? Type yes:
+```
+
+必须输入完整的 `yes` 并回车。直接回车会取消安装。
 
 ## 9. Basic Mode / ISP Mode 选择
 

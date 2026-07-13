@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.4.2
+
+### Deployment Experience Improvements
+
+- Clarify NAT VPS Entry Node and ISP Residential Exit separation.
+- Add Linux password input notes.
+- Explain installation confirmation behavior.
+- Add interrupted installation troubleshooting.
+- Add node availability troubleshooting.
+- 中文同步：补充入口节点/出口节点区别、Linux 密码输入说明、安装确认行为、安装中断排查和节点突然不可用排查。
+
 ## v1.4.1
 
 Documentation structure cleanup

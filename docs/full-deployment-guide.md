@@ -47,6 +47,21 @@ Internal Xray port: 443
 NAT mapping: CHANGE_ME_PUBLIC_HOST:CHANGE_ME_PUBLIC_PORT -> internal 443/TCP
 ```
 
+Important: `Public entry host` and `Public entry port` mean the NAT VPS Entry Node. Do not enter the ISP Residential SOCKS5 exit IP as the Reality public host.
+
+```text
+NAT VPS Entry:
+- Public IP or domain: CHANGE_ME_PUBLIC_HOST
+- Public NAT port: CHANGE_ME_PUBLIC_PORT
+- Internal Xray port: 443
+
+ISP Residential Exit:
+- SOCKS5 host: CHANGE_ME_SOCKS5_HOST
+- SOCKS5 port: CHANGE_ME_SOCKS5_PORT
+- Username: CHANGE_ME_SOCKS5_USER
+- Password: CHANGE_ME_SOCKS5_PASSWORD
+```
+
 The provider-side NAT rule should forward one external TCP port to internal TCP port `443`.
 
 Example Test Environment:
@@ -98,6 +113,8 @@ ssh -p CHANGE_ME_SSH_PORT root@CHANGE_ME_SERVER
 ```
 
 Do not publish SSH passwords or private keys.
+
+Linux terminals do not display password characters while you type or paste. They also do not show `*`. Paste the password once and press Enter.
 
 ## 5. Basic System Checks / 基础系统检查
 
@@ -185,6 +202,14 @@ bash scripts/install.sh
 ```
 
 The installer will show a plan before applying changes. Continue only after you confirm the values are correct.
+
+When the installer shows:
+
+```text
+Continue? Type yes:
+```
+
+Type the full word `yes` and press Enter. Pressing Enter without `yes` cancels the installation.
 
 ## 9. Choose Basic Mode or ISP Mode / 选择模式
 

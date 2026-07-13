@@ -81,6 +81,58 @@ Installation logs are written to:
 /var/log/nat-reality-bridge-install.log
 ```
 
+### Installation Interrupted Or SSH Disconnected
+
+Problem:
+
+SSH disconnects during installation, or the terminal closes before the installer finishes.
+
+Cause:
+
+The installer may have already installed Xray, written partial output files, or completed successfully before the SSH session dropped.
+
+Check commands:
+
+```bash
+xray version
+systemctl status xray --no-pager
+ls -lah /root/nat-reality-bridge/
+cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
+```
+
+Solution:
+
+- Do not immediately run the installer again.
+- Reconnect over SSH and check the commands above first.
+- If Xray is active and `node.txt` exists, import the node and test the client.
+- If config files or summary files are missing, review `/var/log/nat-reality-bridge-install.log` before deciding whether to rerun.
+
+### Node Suddenly Unavailable
+
+Problem:
+
+The node worked before, but the client suddenly cannot connect.
+
+Cause:
+
+Common causes include a stopped Xray service, provider NAT mapping changes, temporary network issues, or an unavailable SOCKS5 exit.
+
+Check commands:
+
+```bash
+systemctl status xray --no-pager
+systemctl restart xray
+ss -tnlp | grep xray || true
+cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
+```
+
+Solution:
+
+- Confirm Xray is active after restart.
+- Confirm Xray is listening on the internal port, usually `443`.
+- Check the provider NAT port mapping still forwards the public port to internal `443/TCP`.
+- In ISP Residential Exit Mode, verify the SOCKS5 exit is still reachable and credentials are still valid.
+
 ### Git Missing Or Apt Killed On 64 MB VPS
 
 Symptoms:
@@ -202,6 +254,58 @@ bash scripts/test-outbound.sh
 ```text
 /var/log/nat-reality-bridge-install.log
 ```
+
+### 安装中断或 SSH 断开
+
+问题：
+
+安装过程中 SSH 断开，或者终端在安装完成前关闭。
+
+原因：
+
+安装器可能已经完成 Xray 安装，也可能已经写入部分输出文件，甚至可能已经成功完成，只是 SSH 会话先断开了。
+
+检查命令：
+
+```bash
+xray version
+systemctl status xray --no-pager
+ls -lah /root/nat-reality-bridge/
+cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
+```
+
+解决方法：
+
+- 不要立即重新安装。
+- 先重新登录 SSH，并执行上面的检查命令。
+- 如果 Xray 是 active，且 `node.txt` 已存在，先导入节点并测试客户端。
+- 如果配置文件或总结文件缺失，先查看 `/var/log/nat-reality-bridge-install.log`，再判断是否需要重新执行安装器。
+
+### 节点突然不可用
+
+问题：
+
+节点之前可以使用，但客户端突然无法连接。
+
+原因：
+
+常见原因包括 Xray 服务停止、服务商 NAT 映射变化、临时网络问题，或 SOCKS5 出口不可用。
+
+检查命令：
+
+```bash
+systemctl status xray --no-pager
+systemctl restart xray
+ss -tnlp | grep xray || true
+cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
+```
+
+解决方法：
+
+- 确认重启后 Xray 处于 active。
+- 确认 Xray 正在监听内部端口，通常是 `443`。
+- 检查服务商 NAT 端口映射仍然将公网端口转发到内部 `443/TCP`。
+- 如果使用 ISP Residential Exit Mode，确认 SOCKS5 出口仍可连接，账号密码仍有效。
 
 ### 64MB VPS 上 Git 缺失或 apt 被 Killed
 
