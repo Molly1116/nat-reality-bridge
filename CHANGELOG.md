@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.5.0
+
+### Reliable Deployment & Recovery
+
+- Add service backend detection for usable systemd, existing Supervisor, and safe no-manager exit paths.
+- Add atomic Xray binary installation and protected rollback behavior.
+- Add non-secret installation state with `--status` and confirmed interrupted-install recovery flows.
+- Protect existing advanced Xray configurations from accidental overwrite.
+- Align health check, outbound test, backup, update, and uninstall maintenance tools with v1.5.0 service backends.
+- Add a non-secret ownership marker required for managed overwrite, update, and uninstall operations.
+- Clarify interrupted-install recovery as a confirmed new protected transaction; add `--restart-interrupted` while retaining `--resume` as a legacy alias.
+- Phase 4 documentation: document the ownership marker, safe recovery command paths, and systemd/Supervisor behavior for standalone and repository users.
+- Phase 5 documentation: improve the first-time deployment guide with DNS scope, low-resource guidance, external Reality verification, and private ISP SOCKS5 IP-selection notes.
+
 ## v1.4.2
 
 ### Deployment Experience Improvements

@@ -107,7 +107,7 @@ Core concept:
 
 - Supports NAT VPS environments and provider-side TCP port forwarding.
 - Optimized for 64 MB and 128 MB RAM class VPS nodes.
-- Uses official Xray-core with systemd management.
+- Uses official Xray-core with verified systemd management or an existing Supervisor fallback.
 - Does not require Docker, a database, Node.js, or a web panel.
 
 ### Network Architecture
@@ -123,6 +123,14 @@ Core concept:
 - Automatic VLESS URI generation and optional QR code output.
 - Backup, health-check, outbound-test, update, and uninstall helper scripts for full repository users.
 - Install summary and install log for troubleshooting.
+
+### Reliable Deployment And Recovery
+
+- Uses systemd only after confirming that PID 1 and the system bus are usable.
+- Falls back to an already-running Supervisor instance in restricted NAT containers; it never installs Supervisor automatically.
+- Stops safely before activation when no reliable service manager is available.
+- Uses an atomic Xray binary replacement path and records non-secret installation state for recovery.
+- Protects existing advanced Xray configurations from accidental overwrite.
 
 ---
 
@@ -188,7 +196,7 @@ Recommended baseline:
 - 128 MB RAM or above
 - Swap recommended
 - NAT VPS with provider-side TCP port forwarding
-- systemd available
+- a usable systemd service bus, or an existing working Supervisor instance
 - `curl` or `wget` for downloading Xray-core
 - `unzip` and `sha256sum`
 
@@ -196,13 +204,59 @@ This project targets resource-constrained servers.
 
 Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency of NAT Reality Bridge; it is only one way to fetch the project source code.
 
-64 MB RAM NAT VPS instances should be treated as experimental environments. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. In this class of machine, `apt install git` may be terminated by the system because of OOM. Avoid the Git clone workflow on extremely low-memory nodes.
+64 MB RAM NAT VPS instances should be treated as experimental environments. Xray-core itself is lightweight, but minimal containers can still fail during download, extraction, or package work. The installer never installs extra software automatically; an extreme container can therefore stop safely when required tools or a reliable service manager are absent. Use 128 MB RAM or above, with swap enabled, as the recommended minimum.
 
 v1.3.0 adds installer resource modes:
 
-- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Skips optional QR package installation, ASN/Country lookup, and non-essential outbound checks.
+- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Skips QR code generation, ASN/Country lookup, and non-essential outbound checks.
 - `LOW_RESOURCE`: below 160 MB RAM. Continues installation and warns when swap is missing.
 - `NORMAL`: 160 MB RAM or above.
+
+## Installation Recovery
+
+If an SSH session closes or an installation is interrupted, do not immediately run a new installation. Inspect the recorded state first.
+
+Standalone download:
+
+```bash
+bash install.sh --status
+```
+
+Full repository checkout:
+
+```bash
+bash scripts/install.sh --status
+```
+
+If it reports an incomplete transaction, review the existing config and binary state. The recommended recovery command starts a **new protected installation transaction**; it does not resume individual stages and can generate new node parameters.
+
+Standalone download:
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+Full repository checkout:
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` remains available as a legacy alias for `--restart-interrupted`.
+
+The root-only install state records only the stage, timestamp, selected service backend, backup path, and status. It never stores a UUID, Reality private key, SOCKS5 password, or VLESS URI.
+
+## Managed Installation Ownership
+
+After a successful installation, NAT Reality Bridge writes a root-only, non-secret ownership marker at `/etc/nat-reality-bridge/managed.marker`. It contains the project name, marker format, installed version and time, and a random install ID only.
+
+The installer, update helper, and uninstall helper require a valid marker before treating an existing Xray configuration as NAT Reality Bridge managed. Existing installations without this marker are preserved and require manual review; they are not automatically migrated, overwritten, or removed.
+
+## Verification Semantics
+
+`scripts/test-outbound.sh` can verify that an ISP SOCKS5 host accepts the supplied credentials. This is a **Direct SOCKS5 Test**, not proof that a VLESS Reality node works.
+
+**Through Xray Verification** requires authenticated Reality traffic and a real client test. Confirm the public NAT endpoint from an external client, because same-host NAT hairpin tests can be misleading.
 
 Before deployment, check:
 
@@ -301,7 +355,7 @@ Expected files:
 Example completion output:
 
 ```text
-NAT Reality Bridge v1.2.0
+NAT Reality Bridge v1.5.0
 
 Installation completed
 

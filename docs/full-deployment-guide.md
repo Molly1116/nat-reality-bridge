@@ -28,12 +28,32 @@ Recommended baseline:
 
 - Debian 12 or Debian 13
 - x86_64
-- systemd
+- a usable systemd service bus, or an existing working Supervisor instance
 - 128 MB RAM or above
 - Swap recommended
 - NAT VPS with provider-side TCP port forwarding
 
-64 MB RAM NAT VPS is experimental. The installer keeps the core Xray deployment path but skips optional work in extreme low-resource mode.
+64 MB RAM NAT VPS is experimental. The installer does not install extra software automatically and may stop safely if an extreme container lacks required tools or a reliable service manager. Use 128 MB RAM or above, with swap enabled, as the recommended minimum.
+
+### Service Backend
+
+`systemctl` being installed does not prove systemd can manage services. The installer verifies PID 1 and the system bus:
+
+- A usable systemd backend manages `xray.service`.
+- A restricted container can use an already-running Supervisor instance.
+- Without either backend, installation stops before activating Xray.
+
+The installer never installs Supervisor automatically.
+
+### DNS Note
+
+NAT Reality Bridge does not ask for a custom DNS server and does not modify the VPS resolver. DNS setup is not a separate deployment step. Before installation, you may confirm that the VPS can resolve the Reality target:
+
+```bash
+getent hosts www.cloudflare.com || true
+```
+
+If this check fails, resolve the VPS networking or DNS issue with your provider before installing. Do not substitute the ISP SOCKS5 exit address for the public entry host.
 
 Record these values before installation:
 
@@ -91,18 +111,28 @@ SOCKS5 password: CHANGE_ME_SOCKS5_PASSWORD
 
 Skip this section if you plan to use Basic Mode.
 
-Example Test Environment:
+### Recommended ISP SOCKS5 Exit For Personal Self-Hosting
 
-This project does not recommend any provider. The following reference is only a test environment used to validate ISP Residential Exit Mode.
+Based on current testing and price experience, Webshare Private Proxy is a more suitable recommendation for a personal self-hosted node.
 
-- Name: ISP Residential SOCKS5
-- Type: Static ISP Residential SOCKS5
-- Region: Los Angeles, US
-- Purpose: final public egress IP
-- Reference: https://www.711proxy.com/signup?code=20560D
-- Selection reason: supports IP range inspection, which helps region filtering during tests
+- Type: Private Proxy / authenticated SOCKS5
+- Reference: https://www.webshare.io/?referral_code=42f1h0pjvt1z
 
-You may use another ISP Residential Proxy provider. Evaluate price, availability, IP quality, and provider policy independently.
+Personal-use guidance:
+
+- Choose a Private Proxy rather than a shared proxy.
+- Prefer a dedicated egress and keep the SOCKS5 credentials private.
+- Buy multiple candidate IPs within your budget, then replace and test them manually.
+
+IP selection process:
+
+1. Obtain candidate IPs.
+2. Check the observed exit ASN and ISP.
+3. Test access to the services you need.
+4. Test latency and stability from your own network.
+5. Keep the IP that performs best for your use case.
+
+Multiple candidates can improve the chance of finding a suitable egress IP. They do not guarantee that every IP is high quality. You may use another authenticated SOCKS5 provider when it better fits your requirements.
 
 ## 4. SSH Login / SSH 登录
 
@@ -140,7 +170,7 @@ Expected:
 
 - Debian 12 or Debian 13
 - x86_64 architecture
-- systemd available
+- a usable systemd service bus, or an already-running Supervisor instance
 - at least one of `curl` or `wget`
 - `unzip` and `sha256sum` available
 - enough free disk under `/usr/local`
@@ -211,6 +241,12 @@ Continue? Type yes:
 
 Type the full word `yes` and press Enter. Pressing Enter without `yes` cancels the installation.
 
+### Existing Configuration Protection
+
+The installer is for a supported single-node configuration. Before it modifies an existing config, it requires a valid root-only ownership marker at `/etc/nat-reality-bridge/managed.marker`. The marker contains project metadata and a random install ID only.
+
+Without a valid marker, the existing Xray deployment is treated as user-managed and preserved. It is not automatically migrated, overwritten, or removed. A marker-backed config must still be the supported single-node structure; multi-inbound, multi-outbound, and unrecognized configurations stop safely. This project does not manage multi-ISP Xray configurations.
+
 ## 9. Choose Basic Mode or ISP Mode / 选择模式
 
 The installer asks for a deployment mode.
@@ -258,6 +294,12 @@ cat /root/nat-reality-bridge/node.txt
 cat /root/nat-reality-bridge/install-summary.txt
 ```
 
+To print only the importable URI, use:
+
+```bash
+sed -n 's/^VLESS_URI=//p' /root/nat-reality-bridge/node.txt
+```
+
 Expected files:
 
 - `node.txt`: VLESS URI and client parameters
@@ -270,13 +312,13 @@ Expected files:
 Android:
 
 - Open v2rayNG.
-- Scan `/root/nat-reality-bridge/node.png` if it exists.
-- Or copy the `vless://` URI from `/root/nat-reality-bridge/node.txt`.
+- Download `/root/nat-reality-bridge/node.png` to the phone before scanning it, if it exists.
+- Or copy the value after `VLESS_URI=` from `/root/nat-reality-bridge/node.txt`.
 
 Windows:
 
 - Use Karing, Nekobox, or another compatible client.
-- Import the `vless://` URI from `/root/nat-reality-bridge/node.txt`.
+- Import the value after `VLESS_URI=` from `/root/nat-reality-bridge/node.txt`.
 
 iOS:
 
@@ -294,7 +336,7 @@ cat /root/nat-reality-bridge/node.txt
 These commands work for both standalone installer users and full repository users:
 
 ```bash
-systemctl status xray --no-pager
+ps -o pid,rss,comm -C xray
 ss -tnlp | grep xray || true
 /usr/local/bin/xray run -test -config /etc/xray/config.json
 cat /root/nat-reality-bridge/install-summary.txt
@@ -307,7 +349,54 @@ bash scripts/health-check.sh
 bash scripts/test-outbound.sh
 ```
 
+`health-check.sh` detects systemd, Supervisor, or an unknown backend. Do not assume `systemctl status xray` is valid merely because the command exists.
+
 Do not run `scripts/health-check.sh` or `scripts/test-outbound.sh` after a standalone `install.sh` download unless you also uploaded the full repository.
+
+`test-outbound.sh` performs a **Direct SOCKS5 Test** only. A successful result proves SOCKS5 reachability and credentials, not a Reality handshake. Verify the completed client node from an external client to test the public NAT path and authenticated Through Xray traffic.
+
+For routine maintenance from a full repository checkout:
+
+```bash
+bash scripts/health-check.sh
+bash scripts/backup.sh
+```
+
+`update.sh` currently creates a backup and validates the current Xray configuration; it does not replace Xray-core automatically.
+
+## Installation Recovery
+
+If SSH disconnects or installation stops unexpectedly, do not immediately run a new installation. Check the root-only state file first.
+
+For a standalone download:
+
+```bash
+bash install.sh --status
+```
+
+For a full repository checkout:
+
+```bash
+bash scripts/install.sh --status
+```
+
+When it reports an incomplete transaction, inspect the existing config and binary state. Recovery starts a **new protected installation transaction**; it does not resume individual stages and can generate new node parameters.
+
+For a standalone download:
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+For a full repository checkout:
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` remains available as a legacy alias.
+
+`install-state` stores only the stage, timestamp, service backend, backup path, and status. It never stores UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
 
 ## 14. Common Issues / 常见问题
 
@@ -358,7 +447,7 @@ cat /root/nat-reality-bridge/node.txt
 Check:
 
 ```bash
-systemctl status xray --no-pager
+ps -eo pid,comm,args | grep '[x]ray' || true
 ss -tnlp | grep xray || true
 /usr/local/bin/xray run -test -config /etc/xray/config.json
 cat /root/nat-reality-bridge/node.txt

@@ -39,17 +39,17 @@ Confirm:
 - 128 MB RAM or above is recommended.
 - Swap is recommended on low-memory nodes.
 - NAT VPS requires provider-side TCP forwarding.
-- systemd is available.
+- a usable systemd service bus, or an existing working Supervisor instance.
 - `curl` or `wget` is available.
 - `unzip` and `sha256sum` are available.
 
 Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependency; it is only one way to fetch the project source code.
 
-64 MB RAM NAT VPS instances are experimental. Xray-core itself is lightweight, but Debian package installation can require more temporary memory. `apt install git` may be killed by OOM on this class of machine, so avoid Git clone as the default workflow there.
+64 MB RAM NAT VPS instances are experimental. Xray-core itself is lightweight, but minimal containers can still fail during download, extraction, or package work. The installer does not install extra software automatically. If required tools or a reliable service manager are unavailable, it stops before activating a configuration. Use 128 MB RAM or above with swap as the recommended minimum.
 
 Installer resource modes:
 
-- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Keeps Xray download, config generation, systemd startup, and node file output, but skips optional QR installation, ASN/Country lookup, and non-essential outbound checks.
+- `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Keeps the core Xray download, config generation, verified service startup, and node file output path, but skips QR code generation, ASN/Country lookup, and non-essential outbound checks.
 - `LOW_RESOURCE`: below 160 MB RAM. Continues the full install path and warns when swap is missing.
 - `NORMAL`: 160 MB RAM or above.
 
@@ -113,6 +113,69 @@ The installer supports two modes:
 - Basic Mode: VLESS Reality TCP Vision with VPS native exit.
 - ISP Residential Exit Mode: VLESS Reality TCP Vision with SOCKS5 ISP or residential exit.
 
+#### Service Backend Selection
+
+The installer does not treat the presence of `systemctl` as proof that systemd works. It checks PID 1 and the system bus before selecting a backend:
+
+- `SYSTEMD_AVAILABLE`: writes and manages `xray.service`.
+- `SYSTEMD_UNAVAILABLE` with an existing Supervisor: creates the NAT Reality Bridge Supervisor program.
+- No reliable manager: stops before activating config or replacing the active service.
+
+Supervisor is never installed automatically. This protects low-memory NAT containers from package-installation OOM failures.
+
+#### Existing Configuration Protection
+
+Before modifying an existing `/etc/xray/config.json`, the installer requires a valid, root-only ownership marker at `/etc/nat-reality-bridge/managed.marker`. The marker contains project metadata and a random install ID only; it never contains credentials or node identity.
+
+Without a valid marker, the existing deployment is treated as user-managed and preserved. The installer does not migrate, overwrite, or remove it automatically. A marker-backed configuration must still match the supported single-node structure; multiple inbounds, multiple outbounds, or an unrecognized structure cause a safe abort:
+
+```text
+Detected existing advanced Xray configuration.
+Installation aborted to avoid overwrite.
+```
+
+This release does not migrate or manage multi-ISP configurations.
+
+#### Installation Recovery
+
+An interrupted installation records a root-only state file at:
+
+```text
+/var/lib/nat-reality-bridge/install-state
+```
+
+Do not immediately reinstall after an SSH interruption. First inspect the state.
+
+Standalone download:
+
+```bash
+bash install.sh --status
+```
+
+Full repository checkout:
+
+```bash
+bash scripts/install.sh --status
+```
+
+When the state is incomplete, the recovery entry point starts a **new protected installation transaction**. It does not resume individual stages and can generate new node parameters.
+
+Standalone download:
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+Full repository checkout:
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` is retained as a legacy alias for `--restart-interrupted`.
+
+The state file records stage, timestamp, service backend, backup path, and status only. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
+
 Use official Xray-core release assets and verify checksums before installing:
 
 ```text
@@ -157,22 +220,16 @@ ISP Residential Exit Mode configures a `socks` outbound and routes all `tcp,udp`
 
 ### 6. Validation
 
-```bash
-/usr/local/bin/xray run -test -config /etc/xray/config.json
-systemctl restart xray
-systemctl is-active xray
-ss -tnlp | grep ':443'
-journalctl -u xray --no-pager -n 80
-```
-
-In Basic Mode, the final client exit IP should match the VPS native exit. In ISP Residential Exit Mode, the final client exit IP should match the SOCKS5 ISP exit IP.
-
-v1.2.0 also provides:
+The following helper commands are available only from a full repository checkout:
 
 ```bash
-bash scripts/test-outbound.sh
 bash scripts/health-check.sh
+bash scripts/test-outbound.sh
 ```
+
+`health-check.sh` selects systemd, Supervisor, or unknown status according to the live host. `test-outbound.sh` performs a **Direct SOCKS5 Test** in ISP mode only. A passing direct test proves proxy reachability and credentials, not a successful Reality handshake.
+
+In Basic Mode, the final client exit IP should match the VPS native exit. In ISP Residential Exit Mode, the final client exit IP should match the SOCKS5 ISP exit IP after authenticated Reality traffic has been verified from an external client. Standalone users can validate the local config with `/usr/local/bin/xray run -test -config /etc/xray/config.json` and must use an external client for final Reality verification.
 
 ## 中文
 
@@ -211,17 +268,17 @@ df -hT
 - 推荐 128MB RAM 或更高。
 - 小内存节点推荐启用 swap。
 - 服务端只有内网地址时，需依赖服务商 NAT 映射。
-- systemd 可用。
+- 可用的 systemd service bus，或已有且可工作的 Supervisor。
 - `curl` 或 `wget` 可用。
 - `unzip` 和 `sha256sum` 可用。
 
 Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是运行依赖，只是获取项目源码的一种方式。
 
-64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。`apt install git` 可能在这类机器上因为 OOM 被系统终止，因此不建议把 Git clone 作为默认流程。
+64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但极简容器仍可能在下载、解压或软件包操作阶段失败。安装器不会自动安装额外软件；缺少必要工具或可靠服务管理器时会在激活配置前停止。建议最低使用 128MB RAM 并启用 swap。
 
 安装器资源模式：
 
-- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。保留 Xray 下载、配置生成、systemd 启动和节点文件输出，但跳过可选二维码安装、ASN/Country 查询和非必要出口检测。
+- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。保留核心 Xray 下载、配置生成、已验证的服务启动和节点文件输出路径，但跳过可选二维码安装、ASN/Country 查询和非必要出口检测。
 - `LOW_RESOURCE`：低于 160MB RAM。继续完整安装路径，并在缺少 swap 时提示。
 - `NORMAL`：160MB RAM 或更高。
 
@@ -285,6 +342,69 @@ cd nat-reality-bridge
 - Basic Mode：VLESS Reality TCP Vision，使用 VPS 原生出口。
 - ISP Residential Exit Mode：VLESS Reality TCP Vision，使用 SOCKS5 ISP 或家宽出口。
 
+#### 服务后端选择
+
+安装器不会因为存在 `systemctl` 就假定 systemd 可用。它会检查 PID 1 和 system bus，再选择后端：
+
+- `SYSTEMD_AVAILABLE`：写入并管理 `xray.service`。
+- `SYSTEMD_UNAVAILABLE` 且已有 Supervisor：创建 NAT Reality Bridge 的 Supervisor program。
+- 没有可靠服务管理器：在激活配置或替换活动服务前停止。
+
+安装器绝不自动安装 Supervisor，避免低内存 NAT 容器在软件包安装阶段 OOM。
+
+#### 已有配置保护
+
+修改已有 `/etc/xray/config.json` 前，安装器要求 `/etc/nat-reality-bridge/managed.marker` 中存在合法的、仅 root 可读的归属标记。标记只记录项目元数据和随机 install ID，不包含连接凭据或节点身份。
+
+没有合法标记时，已有部署会被视为用户自行管理并被保留；安装器不会自动迁移、覆盖或删除。对于有标记的配置，仍必须符合受支持的单节点结构；发现多个 inbound、多个 outbound 或未知结构时会安全中止：
+
+```text
+Detected existing advanced Xray configuration.
+Installation aborted to avoid overwrite.
+```
+
+本版本不迁移，也不管理多 ISP 配置。
+
+#### 安装恢复
+
+安装中断时会记录 root-only 状态文件：
+
+```text
+/var/lib/nat-reality-bridge/install-state
+```
+
+SSH 中断后不要立刻重新安装，先检查状态。
+
+单文件下载：
+
+```bash
+bash install.sh --status
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --status
+```
+
+状态显示未完成时，恢复入口会**重新启动一轮受保护安装事务**，不会从具体阶段继续，并且可能生成新的节点参数。
+
+单文件下载：
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` 保留为 `--restart-interrupted` 的兼容别名。
+
+状态文件只记录阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+
 使用官方 Xray-core release，并校验下载文件：
 
 ```text
@@ -329,19 +449,13 @@ ISP Residential Exit Mode 配置 `socks` outbound，并将全部 `tcp,udp` 路�
 
 ### 6. 验证
 
-```bash
-/usr/local/bin/xray run -test -config /etc/xray/config.json
-systemctl restart xray
-systemctl is-active xray
-ss -tnlp | grep ':443'
-journalctl -u xray --no-pager -n 80
-```
-
-Basic Mode 下，最终客户端出口 IP 应等于 VPS 原生出口。ISP Residential Exit Mode 下，最终客户端出口 IP 应等于 SOCKS5 ISP 出口 IP。
-
-v1.2.0 还提供：
+以下辅助命令只适用于完整仓库目录：
 
 ```bash
-bash scripts/test-outbound.sh
 bash scripts/health-check.sh
+bash scripts/test-outbound.sh
 ```
+
+`health-check.sh` 会根据实际主机选择 systemd、Supervisor 或 unknown 状态。ISP 模式中，`test-outbound.sh` 只执行 **Direct SOCKS5 Test**。直接测试通过只说明代理地址和凭据可用，不代表 Reality 握手成功。
+
+Basic Mode 下，最终客户端出口 IP 应等于 VPS 原生出口。ISP Residential Exit Mode 下，只有从外部客户端完成认证 Reality 流量验证后，最终出口 IP 才应等于 SOCKS5 ISP 出口 IP。单文件用户可以通过 `/usr/local/bin/xray run -test -config /etc/xray/config.json` 验证本地配置，并必须从外部客户端完成最终 Reality 验证。

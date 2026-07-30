@@ -98,7 +98,7 @@ NAT VPS 入口节点通过服务商端口映射接收客户端流量，并运行
 
 - 支持 NAT VPS 和服务商 TCP 端口映射环境。
 - 针对 64MB/128MB RAM 级别小内存 VPS 优化。
-- 使用官方 Xray-core，并通过 systemd 管理。
+- 使用官方 Xray-core，并通过已验证的 systemd 或已有 Supervisor 管理。
 - 不依赖 Docker、数据库、Node.js 或 Web 面板。
 
 ### 网络架构
@@ -114,6 +114,14 @@ NAT VPS 入口节点通过服务商端口映射接收客户端流量，并运行
 - 自动生成 VLESS URI，可选二维码输出。
 - 完整仓库用户可使用备份、健康检查、出口检测、更新提示和卸载辅助脚本。
 - 生成安装总结和安装日志，方便排障。
+
+### 可靠部署与恢复
+
+- 只有确认 PID 1 和 system bus 都可用后才使用 systemd。
+- 在受限 NAT 容器中可使用已经运行的 Supervisor；安装器绝不自动安装 Supervisor。
+- 没有可靠服务管理器时，会在激活配置前安全退出。
+- 使用 Xray 二进制原子替换，并记录不含敏感信息的安装状态。
+- 检测到高级 Xray 配置时会停止，避免误覆盖。
 
 ## 应用场景 / Use Cases
 
@@ -171,7 +179,7 @@ ISP Residential Exit Mode 将 Xray 流量路由到带认证的 SOCKS5 ISP Reside
 - 128MB RAM 或更高
 - 推荐启用 swap
 - 支持服务商 TCP 端口映射的 NAT VPS
-- systemd 可用
+- 可用的 systemd service bus，或已有且可工作的 Supervisor
 - `curl` 或 `wget` 用于下载 Xray-core
 - `unzip` 和 `sha256sum`
 
@@ -179,13 +187,59 @@ ISP Residential Exit Mode 将 Xray 流量路由到带认证的 SOCKS5 ISP Reside
 
 Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bridge 的运行依赖，只是获取项目源码的一种方式。
 
-64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但 Debian 软件包安装阶段可能需要更多临时内存。在这类机器上，`apt install git` 可能因为 OOM 被系统终止。极低内存机器不建议使用 `git clone` 工作流。
+64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但极简容器仍可能在下载、解压或软件包操作阶段失败。安装器不会自动安装额外软件；缺少必要工具或可靠服务管理器时会安全停止。建议最低使用 128MB RAM 并启用 swap。
 
 v1.3.0 增加安装器资源模式：
 
-- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。跳过可选二维码依赖安装、ASN/Country 查询和非必要出口检测。
+- `EXTREME_LOW_RESOURCE`：低于 80MB RAM。跳过二维码生成、ASN/Country 查询和非必要出口检测。
 - `LOW_RESOURCE`：低于 160MB RAM。继续安装，并在缺少 swap 时提示。
 - `NORMAL`：160MB RAM 或更高。
+
+## 安装恢复
+
+如果 SSH 会话断开或安装被中断，不要立刻重新安装。先查看安装状态。
+
+单文件下载：
+
+```bash
+bash install.sh --status
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --status
+```
+
+如显示未完成事务，先检查现有配置和二进制状态。推荐的恢复命令会**重新启动一轮受保护安装事务**，不会从具体阶段继续，并且可能生成新的节点参数。
+
+单文件下载：
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` 保留为 `--restart-interrupted` 的兼容别名。
+
+root-only 的 install-state 只记录阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+
+## 受管安装归属
+
+安装成功后，NAT Reality Bridge 会在 `/etc/nat-reality-bridge/managed.marker` 写入仅 root 可读的非敏感归属标记。它只包含项目名称、标记格式、安装版本和时间，以及随机 install ID。
+
+安装器、更新脚本和卸载脚本只有在标记合法时，才会把已有 Xray 配置视为本工具受管。没有该标记的旧部署会被保留，需要人工审查；不会被自动迁移、覆盖或删除。
+
+## 验证语义
+
+`scripts/test-outbound.sh` 可以验证 ISP SOCKS5 地址是否接受提供的凭据。这只是 **Direct SOCKS5 Test**，不代表 VLESS Reality 节点已成功。
+
+**Through Xray Verification** 需要经过认证的 Reality 流量和真实客户端测试。请从外部客户端确认公网 NAT 入口；同机 NAT hairpin 测试可能造成误判。
 
 部署前必须检查：
 
@@ -284,7 +338,7 @@ bash scripts/test-outbound.sh
 安装完成示例：
 
 ```text
-NAT Reality Bridge v1.2.0
+NAT Reality Bridge v1.5.0
 
 Installation completed
 

@@ -30,7 +30,7 @@ Recommended baseline:
 
 64 MB RAM NAT VPS instances are experimental. Xray-core is lightweight, but package installation can need more temporary memory. Avoid installing Git on this class of machine unless you have enough swap.
 
-In v1.3.0, 64MB-class machines enter `EXTREME_LOW_RESOURCE` mode. The installer keeps the core Xray deployment path but skips optional QR dependency installation and non-essential metadata checks.
+In v1.3.0, 64MB-class machines enter `EXTREME_LOW_RESOURCE` mode. The installer keeps the core Xray deployment path but skips QR code generation and non-essential metadata checks.
 
 Example NAT mapping:
 
@@ -107,6 +107,8 @@ If you cloned or uploaded the full project directory:
 bash scripts/install.sh
 ```
 
+After a successful installation, the tool writes a non-secret, root-only ownership marker at `/etc/nat-reality-bridge/managed.marker`. Future managed update and uninstall operations require this marker; an existing deployment without it is preserved for manual review.
+
 Choose a deployment mode:
 
 - Basic Mode: use the VPS native exit.
@@ -137,12 +139,12 @@ Files:
 Android:
 
 - Open v2rayNG.
-- Scan `node.png`, or copy the `vless://` URI from `node.txt`.
+- Download `node.png` securely to the phone before scanning it, or copy the value after `VLESS_URI=` from `node.txt`.
 
 Windows:
 
 - Use Nekobox or Karing.
-- Import the `vless://` URI from `node.txt`.
+- Import the value after `VLESS_URI=` from `node.txt`.
 
 iOS:
 
@@ -151,21 +153,42 @@ iOS:
 
 ## 6. Test the deployment
 
-On the server:
+For users who downloaded only `install.sh`, use the checks that are available on every installation:
+
+```bash
+ps -o pid,rss,comm -C xray
+ss -tnlp | grep xray || true
+/usr/local/bin/xray run -test -config /etc/xray/config.json
+cat /root/nat-reality-bridge/install-summary.txt
+```
+
+If you installed from the full repository, you may also use:
 
 ```bash
 bash scripts/health-check.sh
 bash scripts/test-outbound.sh
 ```
 
-On the client:
+`test-outbound.sh` is a Direct SOCKS5 Test in ISP mode. A passing result proves that the SOCKS5 proxy accepts the supplied credentials; it does not prove that the Reality node is reachable.
+
+On an external client:
 
 - Import the node.
 - Enable the node.
 - Open an IP check website.
 - Confirm the exit IP matches the expected VPS or SOCKS5 exit.
+- Confirm that actual traffic works through the imported Reality node. A local TCP or direct SOCKS5 test alone is not enough.
 
 ## 7. Keep useful files
+
+For full repository users, a safe routine is:
+
+```bash
+bash scripts/health-check.sh
+bash scripts/backup.sh
+```
+
+`update.sh` currently backs up and validates the current configuration only; it does not replace Xray-core automatically.
 
 Useful paths:
 
@@ -212,7 +235,7 @@ NAT Reality Bridge 不是商业节点服务，而是自用部署工具。服务�
 
 64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但软件包安装阶段可能需要更多临时内存。除非已经有足够 swap，否则不建议在这类机器上安装 Git。
 
-v1.3.0 中，64MB 级别机器会进入 `EXTREME_LOW_RESOURCE` 模式。安装器保留核心 Xray 部署路径，但跳过可选二维码依赖安装和非必要元数据检测。
+v1.3.0 中，64MB 级别机器会进入 `EXTREME_LOW_RESOURCE` 模式。安装器保留核心 Xray 部署路径，但跳过二维码生成和非必要元数据检测。
 
 NAT 映射示例：
 
@@ -289,6 +312,8 @@ bash install.sh
 bash scripts/install.sh
 ```
 
+安装成功后，工具会在 `/etc/nat-reality-bridge/managed.marker` 写入仅 root 可读的非敏感归属标记。后续受管更新和卸载都需要该标记；没有标记的已有部署会被保留，等待人工审查。
+
 选择部署模式：
 
 - Basic Mode：使用 VPS 原生出口。
@@ -319,12 +344,12 @@ bash scripts/install.sh
 Android：
 
 - 打开 v2rayNG。
-- 扫描 `node.png`，或复制 `node.txt` 中的 `vless://` URI。
+- 先将 `node.png` 安全下载到手机后再扫码，或复制 `node.txt` 中 `VLESS_URI=` 之后的值。
 
 Windows：
 
 - 使用 Nekobox 或 Karing。
-- 从 `node.txt` 导入 `vless://` URI。
+- 从 `node.txt` 导入 `VLESS_URI=` 之后的值。
 
 iOS：
 
@@ -333,21 +358,42 @@ iOS：
 
 ## 6. 测试部署
 
-在服务器上执行：
+如果你只下载了单文件 `install.sh`，使用每个安装都可执行的检查：
+
+```bash
+ps -o pid,rss,comm -C xray
+ss -tnlp | grep xray || true
+/usr/local/bin/xray run -test -config /etc/xray/config.json
+cat /root/nat-reality-bridge/install-summary.txt
+```
+
+如果使用的是完整仓库，还可以执行：
 
 ```bash
 bash scripts/health-check.sh
 bash scripts/test-outbound.sh
 ```
 
-在客户端上：
+ISP 模式中，`test-outbound.sh` 只是 Direct SOCKS5 Test。通过只代表 SOCKS5 代理接受提供的凭据，不代表 Reality 节点一定可连接。
+
+在外部客户端上：
 
 - 导入节点。
 - 启用节点。
 - 打开 IP 检测网站。
 - 确认出口 IP 符合预期的 VPS 或 SOCKS5 出口。
+- 确认导入后的 Reality 节点可以承载实际流量；本地 TCP 或 Direct SOCKS5 测试都不足以单独证明节点可用。
 
 ## 7. 保存有用文件
+
+完整仓库用户可以采用以下安全的日常检查与备份流程：
+
+```bash
+bash scripts/health-check.sh
+bash scripts/backup.sh
+```
+
+当前 `update.sh` 只会备份和验证当前配置，不会自动替换 Xray-core。
 
 常用路径：
 

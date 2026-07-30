@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NAT Reality Bridge v1.3.0 installer.
+# NAT Reality Bridge v1.5.0 installer.
 # Review before running. Sensitive values are collected interactively.
 
-NRB_VERSION="v1.3.0"
+NRB_VERSION="v1.5.0"
 XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
-XRAY_BIN="/usr/local/bin/xray"
-XRAY_CONFIG_DIR="/etc/xray"
-XRAY_CONFIG="/etc/xray/config.json"
-XRAY_CONFIG_TMP="/etc/xray/config.json.tmp"
-XRAY_SHARE_DIR="/usr/local/share/xray"
-XRAY_SERVICE="/etc/systemd/system/xray.service"
-BACKUP_ROOT="/root/xray-backups"
-APP_DIR="/root/nat-reality-bridge"
+XRAY_BIN="${XRAY_BIN:-/usr/local/bin/xray}"
+XRAY_CONFIG_DIR="${XRAY_CONFIG_DIR:-/etc/xray}"
+XRAY_CONFIG="${XRAY_CONFIG:-/etc/xray/config.json}"
+XRAY_CONFIG_TMP="${XRAY_CONFIG_TMP:-/etc/xray/config.json.tmp}"
+XRAY_SHARE_DIR="${XRAY_SHARE_DIR:-/usr/local/share/xray}"
+XRAY_SERVICE="${XRAY_SERVICE:-/etc/systemd/system/xray.service}"
+SUPERVISOR_CONF_DIR="${SUPERVISOR_CONF_DIR:-/etc/supervisor/conf.d}"
+SUPERVISOR_PROGRAM="${SUPERVISOR_PROGRAM:-nat-reality-bridge-xray}"
+SUPERVISOR_CONFIG="${SUPERVISOR_CONFIG:-${SUPERVISOR_CONF_DIR}/${SUPERVISOR_PROGRAM}.conf}"
+BACKUP_ROOT="${BACKUP_ROOT:-/root/xray-backups}"
+APP_DIR="${APP_DIR:-/root/nat-reality-bridge}"
+STATE_DIR="${STATE_DIR:-/var/lib/nat-reality-bridge}"
+STATE_FILE="${STATE_FILE:-${STATE_DIR}/install-state}"
+MANAGED_DIR="${MANAGED_DIR:-/etc/nat-reality-bridge}"
+MANAGED_MARKER="${MANAGED_MARKER:-${MANAGED_DIR}/managed.marker}"
 NODE_OUTPUT="${APP_DIR}/node.txt"
 NODE_LEGACY_OUTPUT="/root/nat-reality-bridge-node.txt"
 NODE_PNG="${APP_DIR}/node.png"
@@ -50,6 +57,16 @@ QR_RESULT="not_run"
 RESOURCE_MODE="NORMAL"
 DOWNLOAD_TOOL=""
 SWAP_MB="0"
+SERVICE_BACKEND="NO_SERVICE_MANAGER"
+PREVIOUS_STATE_STAGE=""
+PREVIOUS_STATE_STATUS=""
+RESUME_REQUESTED="no"
+XRAY_NEW_BIN=""
+STATE_WRITES_ENABLED="no"
+XRAY_BINARY_ACTIVATED="no"
+XRAY_CONFIG_ACTIVATED="no"
+SERVICE_ARTIFACT_CREATED="no"
+MANAGED_MARKER_ACTIVATED="no"
 
 banner() {
   cat <<'EOF'
@@ -60,8 +77,136 @@ EOF
 }
 
 die() {
+  if [ "${STATE_WRITES_ENABLED:-no}" = "yes" ] && [ -n "${STATE_FILE:-}" ] && [ -d "${STATE_DIR:-}" ]; then
+    state_update "${CURRENT_STAGE:-PRECHECK}" "FAILED" || true
+  fi
   echo "ERROR: $*" >&2
   exit 1
+}
+
+state_value() {
+  local key="$1"
+  [ -f "$STATE_FILE" ] || return 0
+  awk -F= -v key="$key" '$1 == key {sub($1 "=", ""); print; exit}' "$STATE_FILE"
+}
+
+state_update() {
+  local stage="$1"
+  local status="$2"
+  local state_tmp
+  CURRENT_STAGE="$stage"
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  state_tmp="${STATE_FILE}.tmp.$$"
+  umask 077
+  cat > "$state_tmp" <<EOF
+stage=${stage}
+updated_at=$(date -Is)
+service_backend=${SERVICE_BACKEND}
+backup_path=${LAST_BACKUP_DIR}
+status=${status}
+EOF
+  chmod 600 "$state_tmp"
+  mv -f "$state_tmp" "$STATE_FILE"
+}
+
+show_install_state() {
+  if [ ! -f "$STATE_FILE" ]; then
+    echo "No NAT Reality Bridge install state found at: $STATE_FILE"
+    return 0
+  fi
+  echo "NAT Reality Bridge install state"
+  sed -n '1,5p' "$STATE_FILE"
+}
+
+describe_existing_config() {
+  if [ -f "$XRAY_CONFIG" ]; then
+    echo "Existing config: present ($XRAY_CONFIG)"
+  else
+    echo "Existing config: absent ($XRAY_CONFIG)"
+  fi
+  if [ -x "$XRAY_BIN" ]; then
+    echo "Existing Xray binary: present ($XRAY_BIN)"
+  else
+    echo "Existing Xray binary: absent ($XRAY_BIN)"
+  fi
+}
+
+marker_value() {
+  local key="$1"
+  [ -f "$MANAGED_MARKER" ] || return 0
+  awk -F= -v key="$key" '$1 == key {sub($1 "=", ""); print; exit}' "$MANAGED_MARKER"
+}
+
+is_valid_managed_marker() {
+  local marker_id
+  [ -f "$MANAGED_MARKER" ] || return 1
+  [ ! -L "$MANAGED_MARKER" ] || return 1
+  [ -O "$MANAGED_MARKER" ] || return 1
+  [ "$(stat -c '%a' "$MANAGED_MARKER" 2>/dev/null || true)" = "600" ] || return 1
+  [ "$(marker_value project)" = "NAT Reality Bridge" ] || return 1
+  [ "$(marker_value marker_format)" = "1" ] || return 1
+  [ -n "$(marker_value installed_at)" ] || return 1
+  marker_id="$(marker_value install_id)"
+  [[ "$marker_id" =~ ^[a-f0-9]{32}$ ]]
+}
+
+write_managed_marker() {
+  local marker_tmp install_id
+  mkdir -p "$MANAGED_DIR"
+  chmod 700 "$MANAGED_DIR"
+  install_id="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+  marker_tmp="${MANAGED_MARKER}.tmp.$$"
+  umask 077
+  cat > "$marker_tmp" <<EOF
+project=NAT Reality Bridge
+marker_format=1
+installed_version=${NRB_VERSION}
+installed_at=$(date -Is)
+install_id=${install_id}
+EOF
+  chmod 600 "$marker_tmp"
+  mv -f "$marker_tmp" "$MANAGED_MARKER"
+  MANAGED_MARKER_ACTIVATED="yes"
+}
+
+handle_previous_state() {
+  [ -f "$STATE_FILE" ] || {
+    if [ "$RESUME_REQUESTED" != "no" ]; then
+      STATE_WRITES_ENABLED="no"
+      die "No incomplete installation state was found. Run without --restart-interrupted for a new installation."
+    fi
+    return 0
+  }
+
+  PREVIOUS_STATE_STAGE="$(state_value stage)"
+  PREVIOUS_STATE_STATUS="$(state_value status)"
+  if [ "$PREVIOUS_STATE_STATUS" = "COMPLETE" ]; then
+    if [ "$RESUME_REQUESTED" != "no" ]; then
+      STATE_WRITES_ENABLED="no"
+      die "The previous installation is already complete. Use --status to inspect it."
+    fi
+    return 0
+  fi
+
+  if [ "$RESUME_REQUESTED" = "no" ]; then
+    echo "An incomplete NAT Reality Bridge installation was detected." >&2
+    show_install_state >&2
+    STATE_WRITES_ENABLED="no"
+    die "Run '$0 --status' to inspect it or '$0 --restart-interrupted' to start a new protected transaction after confirmation."
+  fi
+
+  echo "Incomplete installation detected."
+  echo "Current stage: ${PREVIOUS_STATE_STAGE:-unknown}"
+  echo "Current status: ${PREVIOUS_STATE_STATUS:-unknown}"
+  describe_existing_config
+  echo "This does not resume individual stages or preserve newly generated node parameters." >&2
+  printf "Restart the interrupted installation as a new protected transaction? Type yes: " >&2
+  IFS= read -r answer
+  if [ "$answer" != "yes" ]; then
+    STATE_WRITES_ENABLED="no"
+    die "Resume aborted."
+  fi
 }
 
 detect_download_tool() {
@@ -97,6 +242,9 @@ init_paths() {
   mkdir -p "$APP_DIR"
   touch "$INSTALL_LOG"
   chmod 600 "$INSTALL_LOG"
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  STATE_WRITES_ENABLED="yes"
 }
 
 init_logging() {
@@ -107,6 +255,81 @@ init_logging() {
 
 need_root() {
   [ "$(id -u)" = "0" ] || die "This installer must run as root."
+}
+
+detect_service_manager() {
+  local pid1
+  SERVICE_BACKEND="NO_SERVICE_MANAGER"
+  pid1="$(ps -p 1 -o comm= 2>/dev/null | tr -d '[:space:]')"
+
+  if [ "$pid1" = "systemd" ] && command -v systemctl >/dev/null 2>&1; then
+    if systemctl show --property=Version --value >/dev/null 2>&1 && \
+       systemctl list-units --type=service --no-legend --no-pager >/dev/null 2>&1; then
+      SERVICE_BACKEND="SYSTEMD_AVAILABLE"
+      echo "Service manager: SYSTEMD_AVAILABLE"
+      return 0
+    fi
+    echo "Service manager: SYSTEMD_UNAVAILABLE (systemd is PID 1, but the system bus is unavailable)" >&2
+  else
+    echo "Service manager: SYSTEMD_UNAVAILABLE (PID 1 is ${pid1:-unknown})" >&2
+  fi
+
+  if command -v supervisord >/dev/null 2>&1 && command -v supervisorctl >/dev/null 2>&1; then
+    if supervisorctl status >/dev/null 2>&1; then
+      SERVICE_BACKEND="SUPERVISOR_AVAILABLE"
+      echo "Service manager: SUPERVISOR_AVAILABLE"
+      return 0
+    fi
+  fi
+
+  echo "Service manager: NO_SERVICE_MANAGER" >&2
+  return 1
+}
+
+json_section_protocol_count() {
+  local section="$1"
+  local next_section="$2"
+  awk -v section="\"${section}\"" -v next_section="\"${next_section}\"" '
+    $0 ~ section { inside=1; next }
+    inside && $0 ~ next_section { exit }
+    inside && $0 ~ /"protocol"[[:space:]]*:/ { count++ }
+    END { print count + 0 }
+  ' "$XRAY_CONFIG"
+}
+
+is_supported_single_node_config() {
+  local inbound_count outbound_count
+  inbound_count="$(json_section_protocol_count inbounds outbounds)"
+  outbound_count="$(json_section_protocol_count outbounds routing)"
+  if [ "$outbound_count" -eq 0 ]; then
+    outbound_count="$(awk '
+      /"outbounds"/ { inside=1; next }
+      inside && /"protocol"[[:space:]]*:/ { count++ }
+      END { print count + 0 }
+    ' "$XRAY_CONFIG")"
+  fi
+
+  [ "$inbound_count" -eq 1 ] || return 1
+  [ "$outbound_count" -eq 2 ] || return 1
+  grep -Eq '"tag"[[:space:]]*:[[:space:]]*"vless-reality-in"' "$XRAY_CONFIG" || return 1
+  grep -Eq '"protocol"[[:space:]]*:[[:space:]]*"vless"' "$XRAY_CONFIG" || return 1
+  grep -Eq '"security"[[:space:]]*:[[:space:]]*"reality"' "$XRAY_CONFIG" || return 1
+  grep -Eq '"tag"[[:space:]]*:[[:space:]]*"block"' "$XRAY_CONFIG" || return 1
+  grep -Eq '"tag"[[:space:]]*:[[:space:]]*"(direct|isp-socks5)"' "$XRAY_CONFIG" || return 1
+}
+
+protect_existing_config() {
+  [ -f "$XRAY_CONFIG" ] || return 0
+  if ! is_valid_managed_marker; then
+    echo "Existing Xray config has no valid NAT Reality Bridge ownership marker." >&2
+    echo "Installation aborted to avoid overwriting user-managed configuration." >&2
+    die "Create a fresh environment or manage the existing configuration manually."
+  fi
+  if ! is_supported_single_node_config; then
+    echo "Detected existing advanced Xray configuration." >&2
+    echo "Installation aborted to avoid overwrite." >&2
+    die "Existing config is not the supported single-node NAT Reality Bridge structure."
+  fi
 }
 
 read_required() {
@@ -139,7 +362,6 @@ preflight() {
   echo "Download tool: ${DOWNLOAD_TOOL}"
   command -v unzip >/dev/null || die "unzip is required."
   command -v sha256sum >/dev/null || die "sha256sum is required."
-  command -v systemctl >/dev/null || die "systemd is required."
   command -v ss >/dev/null || echo "Warning: ss is not available; listen checks may be limited." >&2
 
   arch="$(uname -m)"
@@ -199,6 +421,13 @@ preflight() {
   else
     echo "Warning: no global IPv4 address detected. Provider NAT mapping may still work, but verify it carefully." >&2
   fi
+
+  if ! detect_service_manager; then
+    die "No reliable service manager is available. Xray configuration has not been activated. Install and start Supervisor outside this installer, or use a Debian systemd environment."
+  fi
+
+  protect_existing_config
+  state_update "PRECHECK" "IN_PROGRESS"
 }
 
 choose_mode() {
@@ -291,12 +520,13 @@ backup_existing() {
   mkdir -p "$BACKUP_ROOT"
   LAST_BACKUP_DIR="$BACKUP_ROOT/backup-$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "$LAST_BACKUP_DIR"
-  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT" "$INSTALL_SUMMARY"; do
+  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$SUPERVISOR_CONFIG" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT" "$INSTALL_SUMMARY" "$MANAGED_MARKER"; do
     if [ -e "$p" ]; then
       cp -a "$p" "$LAST_BACKUP_DIR/$(echo "$p" | sed 's#^/##; s#/#_#g')"
     fi
   done
   echo "Backup directory: $LAST_BACKUP_DIR"
+  state_update "BACKUP_CREATED" "IN_PROGRESS"
 }
 
 rollback() {
@@ -305,17 +535,65 @@ rollback() {
     return 1
   fi
   echo "Rolling back from $LAST_BACKUP_DIR" >&2
-  [ -f "$LAST_BACKUP_DIR/etc_xray_config.json" ] && cp -a "$LAST_BACKUP_DIR/etc_xray_config.json" "$XRAY_CONFIG"
-  [ -f "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" ] && cp -a "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" "$XRAY_SERVICE"
+  if [ "$XRAY_CONFIG_ACTIVATED" = "yes" ]; then
+    if [ -f "$LAST_BACKUP_DIR/etc_xray_config.json" ]; then
+      cp -a "$LAST_BACKUP_DIR/etc_xray_config.json" "$XRAY_CONFIG"
+    else
+      rm -f "$XRAY_CONFIG"
+    fi
+  fi
+  if [ "$SERVICE_BACKEND" = "SYSTEMD_AVAILABLE" ]; then
+    if [ -f "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" ]; then
+      cp -a "$LAST_BACKUP_DIR/etc_systemd_system_xray.service" "$XRAY_SERVICE"
+    elif [ "$SERVICE_ARTIFACT_CREATED" = "yes" ]; then
+      rm -f "$XRAY_SERVICE"
+    fi
+  elif [ "$SERVICE_BACKEND" = "SUPERVISOR_AVAILABLE" ]; then
+    if [ -f "$LAST_BACKUP_DIR/etc_supervisor_conf.d_${SUPERVISOR_PROGRAM}.conf" ]; then
+      cp -a "$LAST_BACKUP_DIR/etc_supervisor_conf.d_${SUPERVISOR_PROGRAM}.conf" "$SUPERVISOR_CONFIG"
+    elif [ "$SERVICE_ARTIFACT_CREATED" = "yes" ]; then
+      rm -f "$SUPERVISOR_CONFIG"
+    fi
+  fi
+  if [ "$XRAY_BINARY_ACTIVATED" = "yes" ]; then
+    if [ -f "$LAST_BACKUP_DIR/usr_local_bin_xray" ]; then
+      cp -a "$LAST_BACKUP_DIR/usr_local_bin_xray" "${XRAY_BIN}.rollback.$$"
+      chmod 755 "${XRAY_BIN}.rollback.$$"
+      mv -f "${XRAY_BIN}.rollback.$$" "$XRAY_BIN"
+    else
+      rm -f "$XRAY_BIN"
+    fi
+  fi
+  [ -f "$LAST_BACKUP_DIR/usr_local_share_xray_geoip.dat" ] && cp -a "$LAST_BACKUP_DIR/usr_local_share_xray_geoip.dat" "$XRAY_SHARE_DIR/geoip.dat"
+  [ -f "$LAST_BACKUP_DIR/usr_local_share_xray_geosite.dat" ] && cp -a "$LAST_BACKUP_DIR/usr_local_share_xray_geosite.dat" "$XRAY_SHARE_DIR/geosite.dat"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" "$NODE_OUTPUT"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" "$NODE_OUTPUT"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" "$INSTALL_SUMMARY"
-  systemctl daemon-reload || true
-  systemctl restart xray || true
+  if [ "$MANAGED_MARKER_ACTIVATED" = "yes" ]; then
+    if [ -f "$LAST_BACKUP_DIR/etc_nat-reality-bridge_managed.marker" ]; then
+      mkdir -p "$MANAGED_DIR"
+      cp -a "$LAST_BACKUP_DIR/etc_nat-reality-bridge_managed.marker" "$MANAGED_MARKER"
+    else
+      rm -f "$MANAGED_MARKER"
+      rmdir "$MANAGED_DIR" 2>/dev/null || true
+    fi
+  fi
+  case "$SERVICE_BACKEND" in
+    SYSTEMD_AVAILABLE)
+      systemctl daemon-reload || true
+      systemctl restart xray || true
+      ;;
+    SUPERVISOR_AVAILABLE)
+      supervisorctl reread || true
+      supervisorctl update || true
+      supervisorctl restart "$SUPERVISOR_PROGRAM" || true
+      ;;
+  esac
 }
 
 on_error() {
   echo "Installation failed. Attempting rollback." >&2
+  state_update "${CURRENT_STAGE:-PRECHECK}" "FAILED" || true
   rollback || true
 }
 
@@ -330,16 +608,29 @@ install_xray() {
   download_file "$base_url/$asset.dgst" "$asset.dgst"
   calc="$(sha256sum "$asset" | awk '{print $1}')"
   grep -qi "$calc" "$asset.dgst" || die "SHA256 verification failed."
-  unzip -q "$asset" -d unpack
-  install -m 0755 unpack/xray "$XRAY_BIN"
   mkdir -p "$XRAY_SHARE_DIR" "$XRAY_CONFIG_DIR"
-  install -m 0644 unpack/geoip.dat "$XRAY_SHARE_DIR/geoip.dat"
-  install -m 0644 unpack/geosite.dat "$XRAY_SHARE_DIR/geosite.dat"
+  state_update "ARTIFACT_VERIFIED" "IN_PROGRESS"
+
+  XRAY_NEW_BIN="${XRAY_BIN}.new.$$"
+  umask 077
+  unzip -p "$asset" xray > "$XRAY_NEW_BIN"
+  chmod 755 "$XRAY_NEW_BIN"
+  "$XRAY_NEW_BIN" version >/dev/null
+  state_update "BINARY_READY" "IN_PROGRESS"
+}
+
+activate_xray_binary() {
+  [ -n "$XRAY_NEW_BIN" ] && [ -x "$XRAY_NEW_BIN" ] || die "Validated replacement Xray binary is missing."
+  mv -f "$XRAY_NEW_BIN" "$XRAY_BIN"
+  XRAY_NEW_BIN=""
+  XRAY_BINARY_ACTIVATED="yes"
 }
 
 generate_reality_values() {
-  UUID_VALUE="$($XRAY_BIN uuid)"
-  keys="$($XRAY_BIN x25519)"
+  local generator_bin
+  generator_bin="${XRAY_NEW_BIN:-$XRAY_BIN}"
+  UUID_VALUE="$($generator_bin uuid)"
+  keys="$($generator_bin x25519)"
   REALITY_PRIVATE_KEY="$(printf '%s\n' "$keys" | awk -F': *' 'tolower($1) ~ /^private ?key$/ {print $2; exit}')"
   REALITY_PUBLIC_KEY="$(printf '%s\n' "$keys" | awk -F': *' 'tolower($1) ~ /^(public ?key|password \(publickey\))$/ {print $2; exit}')"
   REALITY_SHORT_ID="$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
@@ -437,28 +728,76 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
   chmod 644 "$XRAY_SERVICE"
+  SERVICE_ARTIFACT_CREATED="yes"
+}
+
+write_supervisor_program() {
+  mkdir -p "$SUPERVISOR_CONF_DIR"
+  cat > "$SUPERVISOR_CONFIG" <<EOF
+[program:${SUPERVISOR_PROGRAM}]
+command=${XRAY_BIN} run -config ${XRAY_CONFIG}
+directory=/root
+autostart=true
+autorestart=true
+startsecs=2
+startretries=3
+user=root
+redirect_stderr=true
+stdout_logfile=/var/log/${SUPERVISOR_PROGRAM}.log
+stdout_logfile_maxbytes=1MB
+stdout_logfile_backups=1
+EOF
+  chmod 600 "$SUPERVISOR_CONFIG"
+  SERVICE_ARTIFACT_CREATED="yes"
 }
 
 config_test() {
-  "$XRAY_BIN" run -test -config "$XRAY_CONFIG_TMP"
+  local test_bin
+  test_bin="${XRAY_NEW_BIN:-$XRAY_BIN}"
+  "$test_bin" run -test -config "$XRAY_CONFIG_TMP"
 }
 
 activate_config() {
   install -m 0600 "$XRAY_CONFIG_TMP" "$XRAY_CONFIG"
   rm -f "$XRAY_CONFIG_TMP"
+  XRAY_CONFIG_ACTIVATED="yes"
+  state_update "CONFIG_ACTIVATED" "IN_PROGRESS"
 }
 
 restart_service() {
-  systemctl daemon-reload
-  systemctl enable xray >/dev/null
-  systemctl restart xray
-  sleep 2
-  if systemctl is-active --quiet xray; then
-    XRAY_RUNNING="yes"
-  else
-    XRAY_RUNNING="no"
-  fi
-  systemctl --no-pager --full status xray | sed -n '1,45p'
+  case "$SERVICE_BACKEND" in
+    SYSTEMD_AVAILABLE)
+      write_service
+      systemctl daemon-reload
+      systemctl enable xray >/dev/null
+      systemctl restart xray
+      sleep 2
+      if systemctl is-active --quiet xray; then
+        XRAY_RUNNING="yes"
+      else
+        XRAY_RUNNING="no"
+      fi
+      systemctl --no-pager --full status xray | sed -n '1,45p'
+      ;;
+    SUPERVISOR_AVAILABLE)
+      write_supervisor_program
+      supervisorctl reread
+      supervisorctl update
+      supervisorctl restart "$SUPERVISOR_PROGRAM"
+      sleep 2
+      if supervisorctl status "$SUPERVISOR_PROGRAM" | grep -q RUNNING; then
+        XRAY_RUNNING="yes"
+      else
+        XRAY_RUNNING="no"
+      fi
+      supervisorctl status "$SUPERVISOR_PROGRAM"
+      ;;
+    *)
+      die "No reliable service manager was selected."
+      ;;
+  esac
+  [ "$XRAY_RUNNING" = "yes" ] || die "Xray did not reach a running state."
+  state_update "SERVICE_STARTED" "IN_PROGRESS"
 }
 
 fetch_ip_meta() {
@@ -571,6 +910,7 @@ write_install_summary() {
   cat > "$INSTALL_SUMMARY" <<EOF
 NAT Reality Bridge version: ${NRB_VERSION}
 Deployment mode: ${DEPLOY_MODE}
+Service backend: ${SERVICE_BACKEND}
 Xray running: ${XRAY_RUNNING}
 Config test result: ${CONFIG_TEST_RESULT}
 Outbound test result: ${OUTBOUND_TEST_RESULT}
@@ -643,31 +983,49 @@ EOF
 
 main() {
   banner
+  case "${1:-}" in
+    --status)
+      show_install_state
+      return 0
+      ;;
+    --resume|--restart-interrupted)
+      RESUME_REQUESTED="yes"
+      ;;
+    "")
+      ;;
+    *)
+      die "Unknown option: $1. Supported options: --status, --restart-interrupted (or legacy --resume)"
+      ;;
+  esac
   need_root
   init_paths
   init_logging
+  trap on_error ERR
+  handle_previous_state
   preflight
   choose_mode
   collect_common_inputs
   collect_isp_inputs
   show_plan
-  trap on_error ERR
   backup_existing
   install_xray
   generate_reality_values
   write_temp_config
   if config_test; then
     CONFIG_TEST_RESULT="passed"
+    state_update "CONFIG_TESTED" "IN_PROGRESS"
   else
     CONFIG_TEST_RESULT="failed"
     return 1
   fi
+  activate_xray_binary
   activate_config
-  write_service
   restart_service
   test_outbound
   generate_uri
   write_install_summary
+  write_managed_marker
+  state_update "COMPLETE" "COMPLETE"
   print_completion_summary
   trap - ERR
 }

@@ -19,11 +19,12 @@ Check order:
 
 ```bash
 /usr/local/bin/xray run -test -config /etc/xray/config.json
-systemctl is-active xray
+ps -eo pid,comm,args | grep '[x]ray' || true
 ss -tnlp
 ss -tnp state established
-journalctl -u xray --no-pager -n 80
 ```
+
+For a full repository checkout, run `bash scripts/health-check.sh` to identify whether the host uses systemd, Supervisor, or no recognized backend before choosing backend-specific logs or restart commands.
 
 Lessons:
 
@@ -65,13 +66,17 @@ The installer can continue without QR code generation. The VLESS URI remains ava
 
 ### Outbound Test
 
-Use:
+From a full repository checkout, use:
 
 ```bash
 bash scripts/test-outbound.sh
 ```
 
-If ISP mode fails, verify SOCKS5 host, port, username, password, provider reachability, and whether the provider allows the server IP to connect.
+In ISP mode, this is a **Direct SOCKS5 Test**. A successful result proves SOCKS5 reachability and credentials only; it does not prove that a client completed a Reality handshake through Xray. Verify the final node from an external client.
+
+If you downloaded only `install.sh`, this helper is not present. Inspect `/root/nat-reality-bridge/install-summary.txt`, validate the local config, and verify the node from an external client instead.
+
+If the direct test fails, verify SOCKS5 host, port, username, password, provider reachability, and whether the provider allows the server IP to connect.
 
 ### Install Log
 
@@ -94,8 +99,11 @@ The installer may have already installed Xray, written partial output files, or 
 Check commands:
 
 ```bash
-xray version
-systemctl status xray --no-pager
+# Standalone download
+bash install.sh --status
+
+# Full repository checkout
+bash scripts/install.sh --status
 ls -lah /root/nat-reality-bridge/
 cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 ```
@@ -103,9 +111,13 @@ cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 Solution:
 
 - Do not immediately run the installer again.
-- Reconnect over SSH and check the commands above first.
-- If Xray is active and `node.txt` exists, import the node and test the client.
-- If config files or summary files are missing, review `/var/log/nat-reality-bridge-install.log` before deciding whether to rerun.
+- Reconnect over SSH and inspect the non-secret transaction state first.
+- If it is incomplete, inspect the displayed config and binary state, then run `bash install.sh --restart-interrupted` for a standalone download or `bash scripts/install.sh --restart-interrupted` from a repository checkout. Type `yes` only when you accept a new protected transaction and possible new node parameters.
+- `--resume` remains a legacy alias for `--restart-interrupted`.
+- If Xray is active and `node.txt` exists, import the node and test the client from an external network.
+- If config files or summary files are missing, review `/var/log/nat-reality-bridge-install.log` before deciding whether to resume.
+
+The state file records only stage, timestamp, service backend, backup path, and status. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
 
 ### Node Suddenly Unavailable
 
@@ -120,8 +132,18 @@ Common causes include a stopped Xray service, provider NAT mapping changes, temp
 Check commands:
 
 ```bash
+# Full repository checkout: identify the selected backend first.
+bash scripts/health-check.sh
+
+# systemd backend only
 systemctl status xray --no-pager
 systemctl restart xray
+
+# Supervisor backend only
+supervisorctl status nat-reality-bridge-xray
+supervisorctl restart nat-reality-bridge-xray
+
+# Any backend
 ss -tnlp | grep xray || true
 cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 ```
@@ -132,6 +154,48 @@ Solution:
 - Confirm Xray is listening on the internal port, usually `443`.
 - Check the provider NAT port mapping still forwards the public port to internal `443/TCP`.
 - In ISP Residential Exit Mode, verify the SOCKS5 exit is still reachable and credentials are still valid.
+
+### systemd Command Exists But Service Management Fails
+
+Problem:
+
+`systemctl` exists, but it cannot connect to the system bus or cannot manage `xray`.
+
+Cause:
+
+Some NAT containers expose a systemd binary without a usable service manager.
+
+Check command:
+
+```bash
+bash scripts/health-check.sh
+```
+
+Solution:
+
+- The installer uses systemd only when PID 1 and the system bus are usable.
+- If an already-running Supervisor is available, the installer uses its dedicated program instead.
+- If neither backend is reliable, installation stops before config activation. Do not force a `systemctl restart` in that environment.
+
+### Existing Advanced Xray Configuration
+
+Problem:
+
+```text
+Detected existing advanced Xray configuration.
+Installation aborted to avoid overwrite.
+```
+
+Cause:
+
+The installer found multiple inbounds, multiple outbounds, or a structure it cannot safely identify as its supported single-node configuration. It also requires a valid root-only ownership marker at `/etc/nat-reality-bridge/managed.marker` before treating an existing Xray configuration as NAT Reality Bridge managed.
+
+Solution:
+
+- Do not remove the existing config to bypass this protection.
+- Do not create an ownership marker manually to bypass protection. A deployment without a valid marker is preserved and requires manual review.
+- Back up and review the configuration before any manual migration.
+- This project does not manage or migrate multi-ISP configurations.
 
 ### Git Missing Or Apt Killed On 64 MB VPS
 
@@ -172,9 +236,9 @@ bash install.sh
 v1.3.0 behavior:
 
 - Below 80 MB RAM, the installer enters `EXTREME_LOW_RESOURCE` mode.
-- Optional QR dependency installation is skipped.
+- QR code generation is skipped.
 - ASN/Country lookup and non-essential outbound checks are skipped.
-- Xray download, config generation, systemd startup, and node file output are kept.
+- Xray download, config generation, selected service-backend startup, and node file output are kept.
 
 ## 中文
 
@@ -193,11 +257,12 @@ v1.3.0 behavior:
 
 ```bash
 /usr/local/bin/xray run -test -config /etc/xray/config.json
-systemctl is-active xray
+ps -eo pid,comm,args | grep '[x]ray' || true
 ss -tnlp
 ss -tnp state established
-journalctl -u xray --no-pager -n 80
 ```
+
+完整仓库目录可先运行 `bash scripts/health-check.sh`，识别 systemd、Supervisor 或 unknown 后端后，再选择对应的日志和重启命令。
 
 经验结论：
 
@@ -239,13 +304,17 @@ command -v qrencode
 
 ### 出口检测
 
-使用：
+完整仓库目录中使用：
 
 ```bash
 bash scripts/test-outbound.sh
 ```
 
-如果 ISP 模式失败，请检查 SOCKS5 地址、端口、用户名、密码、供应商可达性，以及供应商是否允许当前服务器 IP 连接。
+ISP 模式中，这只是 **Direct SOCKS5 Test**。成功只代表 SOCKS5 地址和凭据可用，不代表客户端已经通过 Xray 完成 Reality 握手。请从外部客户端验证最终节点。
+
+如果只下载了 `install.sh`，该辅助脚本并不存在。请查看 `/root/nat-reality-bridge/install-summary.txt`、验证本地配置，并从外部客户端验证节点。
+
+如果直接测试失败，请检查 SOCKS5 地址、端口、用户名、密码、供应商可达性，以及供应商是否允许当前服务器 IP 连接。
 
 ### 安装日志
 
@@ -281,6 +350,82 @@ cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 - 如果 Xray 是 active，且 `node.txt` 已存在，先导入节点并测试客户端。
 - 如果配置文件或总结文件缺失，先查看 `/var/log/nat-reality-bridge-install.log`，再判断是否需要重新执行安装器。
 
+### systemd 命令存在但服务管理失败
+
+问题：
+
+`systemctl` 存在，但无法连接 system bus 或无法管理 `xray`。
+
+原因：
+
+部分 NAT 容器提供 systemd 命令，但没有可用的服务管理器。
+
+检查命令：
+
+```bash
+bash scripts/health-check.sh
+```
+
+解决方法：
+
+- 安装器只有在 PID 1 和 system bus 都可用时才使用 systemd。
+- 如果已有正在运行的 Supervisor，安装器会使用专用 program。
+- 两种后端都不可靠时，安装会在激活 config 前停止。不要在该环境中强行执行 `systemctl restart`。
+
+### 已有高级 Xray 配置
+
+问题：
+
+```text
+Detected existing advanced Xray configuration.
+Installation aborted to avoid overwrite.
+```
+
+原因：
+
+安装器发现多个 inbound、多个 outbound，或无法安全确认其为受支持的单节点结构。它还要求 `/etc/nat-reality-bridge/managed.marker` 中存在合法的、仅 root 可读的归属标记，才会把已有 Xray 配置视为本工具受管。
+
+解决方法：
+
+- 不要删除已有 config 来绕过保护。
+- 不要手动创建归属标记来绕过保护。没有合法标记的部署会被保留，需要人工审查。
+- 手动迁移前先备份并审查配置。
+- 本项目不管理，也不迁移多 ISP 配置。
+
+### 安装恢复
+
+SSH 断开或安装意外停止后，不要立即重新安装。先检查状态。
+
+单文件下载：
+
+```bash
+bash install.sh --status
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --status
+```
+
+如果状态显示未完成事务，先检查显示的 config 和 binary 状态。恢复会**重新启动一轮受保护安装事务**，不会从具体阶段继续，并且可能生成新的节点参数。
+
+单文件下载：
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` 保留为兼容别名。
+
+`install-state` 只保存阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+
 ### 节点突然不可用
 
 问题：
@@ -294,8 +439,18 @@ cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 检查命令：
 
 ```bash
+# 完整仓库目录：先确认服务后端。
+bash scripts/health-check.sh
+
+# 仅 systemd 后端
 systemctl status xray --no-pager
 systemctl restart xray
+
+# 仅 Supervisor 后端
+supervisorctl status nat-reality-bridge-xray
+supervisorctl restart nat-reality-bridge-xray
+
+# 任意后端
 ss -tnlp | grep xray || true
 cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 ```
@@ -346,6 +501,6 @@ bash install.sh
 v1.3.0 行为：
 
 - 低于 80MB RAM 时，安装器进入 `EXTREME_LOW_RESOURCE` 模式。
-- 跳过可选二维码依赖安装。
+- 跳过二维码生成。
 - 跳过 ASN/Country 查询和非必要出口检测。
-- 保留 Xray 下载、配置生成、systemd 启动和节点文件输出。
+- 保留 Xray 下载、配置生成、所选服务后端启动和节点文件输出。

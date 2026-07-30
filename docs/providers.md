@@ -4,9 +4,7 @@ Language: [English](#english) | [中文](#中文)
 
 ## English
 
-This page does not recommend any provider.
-
-The entries below only record environments used while validating the NAT Reality Bridge deployment pattern. They do not imply long-term availability, stable pricing, inventory, routing quality, or IP quality.
+This page separates test-environment references from a personal self-hosting ISP exit suggestion. Nothing here guarantees long-term availability, stable pricing, inventory, routing quality, IP quality, or access to a particular service.
 
 ## Entry Node Test Environment
 
@@ -20,22 +18,27 @@ Description:
 - Used as an entry node for NAT port mapping and Reality inbound validation.
 - Users should choose machines based on their own route, region, budget, and risk requirements.
 
-## ISP Exit Test Environment
+## Recommended ISP SOCKS5 Exit For Personal Self-Hosting
 
-Name: ISP Residential SOCKS5
+Based on current testing and price experience, Webshare Private Proxy is a more suitable recommendation for a personal self-hosted node.
 
-Link: <https://www.711proxy.com/signup?code=20560D>
+Link: <https://www.webshare.io/?referral_code=42f1h0pjvt1z>
 
-Description:
+Personal-use guidance:
 
-- SOCKS5 ISP or residential exit test environment.
-- Chosen during testing because it provides visibility into IP ranges.
-- Users may choose other SOCKS5 providers according to their own requirements.
+- Choose a Private Proxy rather than a shared proxy.
+- Prefer a dedicated egress and keep the SOCKS5 credentials private.
+- Buy multiple candidate IPs within your budget, then replace and test them manually.
 
-Other provider examples:
+Suggested IP selection process:
 
-- Webshare
-- Any SOCKS5 provider that supports authenticated proxy access and acceptable egress quality
+1. Obtain candidate IPs.
+2. Check the observed exit ASN and ISP.
+3. Test access to the services you need.
+4. Test latency and stability from your own network.
+5. Keep the IP that performs best for your use case.
+
+Multiple candidates can improve the chance of finding a suitable egress IP. They do not guarantee that every IP is high quality. You may use another authenticated SOCKS5 provider when it better fits your requirements.
 
 ## Notes
 
@@ -50,9 +53,7 @@ Provider conditions change frequently. Always test:
 
 ## 中文
 
-本页面不推荐任何供应商。
-
-以下内容仅记录作者测试环境，不代表长期可用、价格稳定、库存充足、线路质量或 IP 质量保证。
+本页面区分测试环境参考和个人自建 ISP 出口建议。以下内容不代表长期可用、价格稳定、库存充足、线路质量、IP 质量或任何特定服务可访问性的保证。
 
 ## 入口机器测试环境
 
@@ -66,22 +67,27 @@ Provider conditions change frequently. Always test:
 - 用于测试 NAT 端口映射和 Reality inbound。
 - 用户应根据自己的线路、地区、预算和风险要求选择机器。
 
-## ISP 出口测试环境
+## 推荐 ISP SOCKS5 出口供应商（个人自建场景）
 
-名称：ISP Residential SOCKS5
+根据当前测试和价格体验，Webshare Private Proxy 更适合作为个人自建节点的推荐选择。
 
-链接：<https://www.711proxy.com/signup?code=20560D>
+链接：<https://www.webshare.io/?referral_code=42f1h0pjvt1z>
 
-说明：
+个人使用建议：
 
-- SOCKS5 ISP 或家宽出口测试环境。
-- 测试时选择它的原因是支持查看 IP 段。
-- 用户也可以根据自身需求选择其他 SOCKS5 供应商。
+- 选择 Private Proxy，不建议购买共享代理。
+- 优先使用独享出口，并妥善保存 SOCKS5 凭据。
+- 根据预算购买多个候选 IP，再手动更换和筛选。
 
-其他供应商示例：
+IP 筛选流程：
 
-- Webshare
-- 任何支持认证代理访问且出口质量满足需求的 SOCKS5 供应商
+1. 获取候选 IP。
+2. 测试出口 ASN / ISP。
+3. 测试目标网站访问情况。
+4. 测试延迟和稳定性。
+5. 保留表现最佳的 IP。
+
+多 IP 筛选只能提高获得优质出口 IP 的概率，不能保证每个 IP 都是高质量。也可以根据自身需求选择其他支持认证访问的 SOCKS5 服务。
 
 ## 注意事项
 

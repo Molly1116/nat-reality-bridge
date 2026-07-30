@@ -26,12 +26,32 @@ NAT Reality Bridge 用于在低资源 NAT VPS 上部署一个极简 Xray Reality
 
 - Debian 12 或 Debian 13
 - x86_64 架构
-- systemd 可用
+- 可用的 systemd service bus，或已有且可工作的 Supervisor
 - 128MB RAM 或更高
 - 推荐启用 swap
 - NAT VPS 支持服务商侧 TCP 端口映射
 
-64MB RAM NAT VPS 属于实验环境。安装器会保留核心 Xray 部署流程，但会在极低资源模式下跳过非必要步骤。
+64MB RAM NAT VPS 属于实验环境。安装器不会自动安装额外软件；极端容器缺少必要工具或可靠服务管理器时可能安全停止。建议最低使用 128MB RAM 并启用 swap。
+
+### 服务后端
+
+存在 `systemctl` 不代表 systemd 一定可以管理服务。安装器会检查 PID 1 和 system bus：
+
+- 可用的 systemd 后端管理 `xray.service`。
+- 受限容器可以使用已经运行的 Supervisor。
+- 两者均不可用时，安装会在激活 Xray 前停止。
+
+安装器绝不自动安装 Supervisor。
+
+### DNS 说明
+
+NAT Reality Bridge 不要求设置自定义 DNS，也不会修改 VPS 的系统解析器。DNS 不是单独的部署步骤。安装前可以确认 VPS 能够解析 Reality 目标：
+
+```bash
+getent hosts www.cloudflare.com || true
+```
+
+如果此检查失败，请先通过服务商解决 VPS 网络或 DNS 问题，再进行安装。不要把 ISP SOCKS5 出口地址填写为公网入口地址。
 
 部署前记录这些信息：
 
@@ -87,18 +107,28 @@ Username: CHANGE_ME_SOCKS5_USER
 Password: CHANGE_ME_SOCKS5_PASSWORD
 ```
 
-### 测试环境参考
+### 推荐 ISP SOCKS5 出口供应商（个人自建场景）
 
-本项目不推荐任何供应商。以下环境仅用于验证 ISP Residential Exit Mode。
+根据当前测试和价格体验，Webshare Private Proxy 更适合作为个人自建节点的推荐选择。
 
-- 名称：ISP Residential SOCKS5
-- 类型：Static ISP Residential SOCKS5
-- 地区：美国洛杉矶
-- 用途：提供最终公网出口 IP
-- 参考链接：https://www.711proxy.com/signup?code=20560D
-- 选择原因：支持查看 IP 段，便于测试时筛选地区
+- 类型：Private Proxy / 认证 SOCKS5
+- 参考链接：https://www.webshare.io/?referral_code=42f1h0pjvt1z
 
-你可以选择其他 ISP Residential Proxy 服务。请自行评估价格、库存、IP 质量和服务商策略。
+个人使用建议：
+
+- 选择 Private Proxy，不建议购买共享代理。
+- 优先使用独享出口，并妥善保存 SOCKS5 凭据。
+- 根据预算购买多个候选 IP，再手动更换和筛选。
+
+IP 筛选流程：
+
+1. 获取候选 IP。
+2. 测试出口 ASN / ISP。
+3. 测试目标网站访问情况。
+4. 测试延迟和稳定性。
+5. 保留表现最佳的 IP。
+
+多 IP 筛选只能提高获得优质出口 IP 的概率，不能保证每个 IP 都是高质量。也可以根据自身需求选择其他支持认证访问的 SOCKS5 服务。
 
 ## 4. SSH 登录
 
@@ -136,7 +166,7 @@ systemctl --version
 
 - Debian 12 或 Debian 13
 - x86_64 架构
-- systemd 可用
+- 可用的 systemd service bus，或已在运行的 Supervisor
 - 至少存在 `curl` 或 `wget` 之一
 - 存在 `unzip` 和 `sha256sum`
 - `/usr/local` 下有足够空间
@@ -207,6 +237,12 @@ Continue? Type yes:
 
 必须输入完整的 `yes` 并回车。直接回车会取消安装。
 
+### 已有配置保护
+
+安装器只面向受支持的单节点配置。修改已有配置前，它要求 `/etc/nat-reality-bridge/managed.marker` 中存在合法的、仅 root 可读的归属标记。标记只记录项目元数据和随机 install ID。
+
+没有合法标记时，已有 Xray 部署会被视为用户自行管理并被保留；不会被自动迁移、覆盖或删除。有标记的配置仍必须是受支持的单节点结构；多 inbound、多 outbound 或未知结构都会安全停止。本项目不管理多 ISP Xray 配置。
+
 ## 9. Basic Mode / ISP Mode 选择
 
 安装器会要求选择部署模式。
@@ -254,6 +290,12 @@ cat /root/nat-reality-bridge/node.txt
 cat /root/nat-reality-bridge/install-summary.txt
 ```
 
+只输出可导入 URI：
+
+```bash
+sed -n 's/^VLESS_URI=//p' /root/nat-reality-bridge/node.txt
+```
+
 预计文件：
 
 - `node.txt`：VLESS URI 和客户端参数。
@@ -266,13 +308,13 @@ cat /root/nat-reality-bridge/install-summary.txt
 Android：
 
 - 打开 v2rayNG。
-- 如果存在 `/root/nat-reality-bridge/node.png`，可以扫码导入。
-- 也可以复制 `/root/nat-reality-bridge/node.txt` 中的 `vless://` URI。
+- 如果存在 `/root/nat-reality-bridge/node.png`，先安全下载到手机后再扫码导入。
+- 也可以复制 `/root/nat-reality-bridge/node.txt` 中 `VLESS_URI=` 之后的值。
 
 Windows：
 
 - 使用 Karing、Nekobox 或其他兼容客户端。
-- 从 `/root/nat-reality-bridge/node.txt` 导入 `vless://` URI。
+- 从 `/root/nat-reality-bridge/node.txt` 导入 `VLESS_URI=` 之后的值。
 
 iOS：
 
@@ -290,7 +332,7 @@ cat /root/nat-reality-bridge/node.txt
 以下命令适用于单文件安装用户和完整仓库用户：
 
 ```bash
-systemctl status xray --no-pager
+ps -o pid,rss,comm -C xray
 ss -tnlp | grep xray || true
 /usr/local/bin/xray run -test -config /etc/xray/config.json
 cat /root/nat-reality-bridge/install-summary.txt
@@ -303,7 +345,54 @@ bash scripts/health-check.sh
 bash scripts/test-outbound.sh
 ```
 
+`health-check.sh` 会识别 systemd、Supervisor 或 unknown 后端。不要因为存在 `systemctl` 命令，就假定 `systemctl status xray` 一定可用。
+
 如果你只是下载了单文件 `install.sh`，不要调用 `scripts/health-check.sh` 或 `scripts/test-outbound.sh`，除非你也上传了完整仓库。
+
+`test-outbound.sh` 只执行 **Direct SOCKS5 Test**。成功只代表 SOCKS5 地址和凭据可用，不代表 Reality 握手成功。应从外部客户端测试完成的节点，以验证公网 NAT 路径和经过 Xray 的认证流量。
+
+完整仓库用户可用以下命令进行日常维护：
+
+```bash
+bash scripts/health-check.sh
+bash scripts/backup.sh
+```
+
+当前 `update.sh` 只会创建备份并验证当前 Xray 配置，不会自动替换 Xray-core。
+
+## 安装恢复
+
+SSH 断开或安装意外停止后，不要立即重新安装。先检查 root-only 状态文件。
+
+单文件下载：
+
+```bash
+bash install.sh --status
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --status
+```
+
+如果显示未完成事务，先检查已有 config 和 binary 状态。恢复会**重新启动一轮受保护安装事务**，不会从具体阶段继续，并且可能生成新的节点参数。
+
+单文件下载：
+
+```bash
+bash install.sh --restart-interrupted
+```
+
+完整仓库目录：
+
+```bash
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` 保留为兼容别名。
+
+`install-state` 只保存阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
 
 ## 14. 常见问题
 
@@ -354,7 +443,7 @@ cat /root/nat-reality-bridge/node.txt
 检查：
 
 ```bash
-systemctl status xray --no-pager
+ps -eo pid,comm,args | grep '[x]ray' || true
 ss -tnlp | grep xray || true
 /usr/local/bin/xray run -test -config /etc/xray/config.json
 cat /root/nat-reality-bridge/node.txt
