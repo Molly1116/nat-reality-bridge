@@ -26,6 +26,8 @@ ss -tnp state established
 
 For a full repository checkout, run `bash scripts/health-check.sh` to identify whether the host uses systemd, Supervisor, or no recognized backend before choosing backend-specific logs or restart commands.
 
+For an external Reality failure, investigate in this order: public NAT mapping, entry IP or domain, Reality SNI, client URI parameters, public TCP reachability, internal listener, ISP SOCKS5 reachability, then the external client network.
+
 Lessons:
 
 - A reachable TCP port does not prove Reality handshake success.
@@ -86,6 +88,39 @@ Installation logs are written to:
 /var/log/nat-reality-bridge-install.log
 ```
 
+### Xray Configuration Test Failed
+
+Problem:
+
+The installer stops while validating the temporary Xray configuration. Xray download or checksum success alone does not mean a node was deployed.
+
+Cause:
+
+v1.5.0 used the historical path below, which current Xray format detection could not identify as JSON:
+
+```text
+Failed to get format of /etc/xray/config.json.tmp
+```
+
+v1.5.1 uses `/etc/xray/config.tmp.json` and rejects a temporary config path that does not end in `.json`.
+
+Check commands:
+
+```bash
+# Standalone download
+bash install.sh --status
+
+# Full repository checkout
+bash scripts/install.sh --status
+```
+
+Solution:
+
+- Confirm the state reports `stage=CONFIG_TESTED`, `status=FAILED`, and `failure_reason=config_test_failed`; failure information is intentionally non-secret.
+- Review `/var/log/nat-reality-bridge-install.log` without publishing its contents.
+- The failed transaction removes its temporary config, unactivated `xray.new.*` binary, and newly created client files while preserving existing config, backups, install state, and install log.
+- Download v1.5.1 or a later installer before starting a new protected transaction. Re-running `--restart-interrupted` with the old v1.5.0 script does not fix that script itself. Do not edit a temporary config to bypass validation.
+
 ### Installation Interrupted Or SSH Disconnected
 
 Problem:
@@ -117,7 +152,7 @@ Solution:
 - If Xray is active and `node.txt` exists, import the node and test the client from an external network.
 - If config files or summary files are missing, review `/var/log/nat-reality-bridge-install.log` before deciding whether to resume.
 
-The state file records only stage, timestamp, service backend, backup path, and status. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
+The state file records only stage, timestamp, service backend, backup path, status, and a non-secret failure reason summary. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
 
 ### Node Suddenly Unavailable
 
@@ -264,6 +299,8 @@ ss -tnp state established
 
 完整仓库目录可先运行 `bash scripts/health-check.sh`，识别 systemd、Supervisor 或 unknown 后端后，再选择对应的日志和重启命令。
 
+外部 Reality 连接失败时，按以下顺序排查：公网 NAT 映射、入口 IP 或域名、Reality SNI、客户端 URI 参数、公网 TCP 可达性、内部监听端口、ISP SOCKS5 可达性，最后检查外部客户端网络环境。
+
 经验结论：
 
 - TCP 端口可连接，不代表 Reality 握手成功。
@@ -324,6 +361,39 @@ ISP 模式中，这只是 **Direct SOCKS5 Test**。成功只代表 SOCKS5 地址
 /var/log/nat-reality-bridge-install.log
 ```
 
+### Xray 配置测试失败
+
+问题：
+
+安装器在临时 Xray 配置校验阶段停止。Xray 下载或校验和成功，不代表节点已经部署成功。
+
+原因：
+
+v1.5.0 使用过以下历史路径，当前 Xray 格式识别无法把它当作 JSON：
+
+```text
+Failed to get format of /etc/xray/config.json.tmp
+```
+
+v1.5.1 使用 `/etc/xray/config.tmp.json`，并拒绝不以 `.json` 结尾的临时配置路径。
+
+检查命令：
+
+```bash
+# 单文件下载
+bash install.sh --status
+
+# 完整仓库目录
+bash scripts/install.sh --status
+```
+
+解决方法：
+
+- 确认状态显示 `stage=CONFIG_TESTED`、`status=FAILED` 和 `failure_reason=config_test_failed`；失败信息刻意不包含敏感内容。
+- 审查 `/var/log/nat-reality-bridge-install.log`，但不要公开日志内容。
+- 失败事务会删除临时配置、未激活的 `xray.new.*` 二进制和新生成的客户端文件，同时保留已有配置、备份、安装状态和安装日志。
+- 下载 v1.5.1 或更高版本安装器后再启动新的受保护安装事务；仅用旧版 v1.5.0 脚本执行 `--restart-interrupted` 无法修复旧脚本本身。不要编辑临时配置绕过校验。
+
 ### 安装中断或 SSH 断开
 
 问题：
@@ -337,8 +407,10 @@ ISP 模式中，这只是 **Direct SOCKS5 Test**。成功只代表 SOCKS5 地址
 检查命令：
 
 ```bash
-xray version
-systemctl status xray --no-pager
+# 完整仓库目录：先识别服务后端
+bash scripts/health-check.sh
+
+# 任意安装方式
 ls -lah /root/nat-reality-bridge/
 cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 ```
@@ -347,7 +419,8 @@ cat /root/nat-reality-bridge/install-summary.txt 2>/dev/null || true
 
 - 不要立即重新安装。
 - 先重新登录 SSH，并执行上面的检查命令。
-- 如果 Xray 是 active，且 `node.txt` 已存在，先导入节点并测试客户端。
+- 根据 health check 识别的 systemd 或 Supervisor 后端选择对应命令，不要因为 `systemctl` 存在就强行使用它。
+- 如果 Xray 正在运行，且 `node.txt` 已存在，先导入节点并从外部网络测试客户端。
 - 如果配置文件或总结文件缺失，先查看 `/var/log/nat-reality-bridge-install.log`，再判断是否需要重新执行安装器。
 
 ### systemd 命令存在但服务管理失败
@@ -424,7 +497,7 @@ bash scripts/install.sh --restart-interrupted
 
 `--resume` 保留为兼容别名。
 
-`install-state` 只保存阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+`install-state` 只保存阶段、时间、服务后端、备份路径、状态和非敏感失败原因摘要，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
 
 ### 节点突然不可用
 

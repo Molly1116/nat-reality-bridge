@@ -122,6 +122,7 @@ NAT VPS 入口节点通过服务商端口映射接收客户端流量，并运行
 - 没有可靠服务管理器时，会在激活配置前安全退出。
 - 使用 Xray 二进制原子替换，并记录不含敏感信息的安装状态。
 - 检测到高级 Xray 配置时会停止，避免误覆盖。
+- 临时配置文件以 `.json` 结尾，确保 Xray 能在激活前正确识别 JSON 格式。
 
 ## 应用场景 / Use Cases
 
@@ -189,6 +190,8 @@ Minimal Debian NAT VPS 默认可能没有预装 Git。Git 不是 NAT Reality Bri
 
 64MB RAM NAT VPS 属于实验环境。Xray-core 本身资源占用较低，但极简容器仍可能在下载、解压或软件包操作阶段失败。安装器不会自动安装额外软件；缺少必要工具或可靠服务管理器时会安全停止。建议最低使用 128MB RAM 并启用 swap。
 
+安装器不会自动安装 Supervisor、Docker、Git、Python、Node.js 或数据库。服务商必须至少提供一个映射到内部 Xray 监听端口的公网 TCP NAT 端口，通常为 `443`。
+
 v1.3.0 增加安装器资源模式：
 
 - `EXTREME_LOW_RESOURCE`：低于 80MB RAM。跳过二维码生成、ASN/Country 查询和非必要出口检测。
@@ -225,9 +228,23 @@ bash install.sh --restart-interrupted
 bash scripts/install.sh --restart-interrupted
 ```
 
-`--resume` 保留为 `--restart-interrupted` 的兼容别名。
+兼容别名：
 
-root-only 的 install-state 只记录阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+```bash
+# 单文件下载
+bash install.sh --resume
+
+# 完整仓库目录
+bash scripts/install.sh --resume
+```
+
+`--resume` 只是 `--restart-interrupted` 的兼容别名，不是真正的阶段断点续跑。新事务可能生成新的节点参数，应以最后一次成功安装生成的节点信息为准。
+
+root-only 的 install-state 只记录阶段、时间、服务后端、备份路径、状态和非敏感失败原因摘要，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+
+### 配置测试失败
+
+配置校验是硬性门槛：通过前不会激活 Xray、不会创建 managed marker，也不能视为节点已部署。校验失败时，请先使用 `bash install.sh --status` 查看 `status=FAILED` 和非敏感失败原因，再查看 `/var/log/nat-reality-bridge-install.log`。安装器会恢复本次事务之前的状态，并删除本次临时配置、未激活的 `xray.new.*` 二进制和新生成的客户端输出文件。不要编辑临时配置绕过校验；请下载当前安装器，审查失败原因后再启动新的受保护安装事务。
 
 ## 受管安装归属
 
@@ -262,6 +279,8 @@ NAT Reality Bridge 提供交互式安装器，用于环境检查、Xray Reality 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
 sed -n '1,220p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 bash install.sh
 ```
 
@@ -288,6 +307,8 @@ cd nat-reality-bridge
 
 ```bash
 sed -n '1,220p' scripts/install.sh
+sed -n '221,520p' scripts/install.sh
+sed -n '521,1120p' scripts/install.sh
 ```
 
 不要盲目执行脚本。
@@ -318,6 +339,8 @@ bash scripts/install.sh
 bash scripts/health-check.sh
 bash scripts/backup.sh
 bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
 ## 安装完成说明
@@ -335,10 +358,12 @@ bash scripts/test-outbound.sh
 - `README.txt`：Android、Windows、iOS 客户端导入说明。
 - `install-summary.txt`：安装结果、部署模式、Xray 状态、配置测试结果和安装时间。
 
+`node.txt` 是键值格式文件。导入时只复制 `VLESS_URI=` 后面的值，不要复制变量名。远程服务器上的 `node.png` 需要先下载到本机或手机后再扫码。
+
 安装完成示例：
 
 ```text
-NAT Reality Bridge v1.5.0
+NAT Reality Bridge v1.5.1
 
 Installation completed
 
@@ -347,6 +372,20 @@ Status:
 [OK] Configuration valid
 [OK] Outbound test passed
 ```
+
+只有同时满足以下条件，才算安装完成：
+
+1. Xray 配置测试通过。
+2. 选定后端报告 Xray active 或 Supervisor RUNNING。
+3. `/etc/nat-reality-bridge/managed.marker` 已生成。
+4. 客户端节点文件已生成。
+5. 内部 Reality 监听端口存在。
+6. ISP Mode 下 Direct SOCKS5 Test 通过。
+7. 外部客户端已完成 Reality 连接。
+8. Reality 流量使用预期的原生或 ISP 出口路径。
+9. 服务重启后仍保持可用。
+
+Xray 下载成功不代表部署成功。服务已启动和 Direct SOCKS5 Test 通过，也不能代替外部 Reality 验证。
 
 ## 文档导航
 

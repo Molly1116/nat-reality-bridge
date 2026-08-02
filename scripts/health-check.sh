@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NRB_VERSION="v1.5.0"
+NRB_VERSION="v1.5.1"
 XRAY_BIN="${XRAY_BIN:-/usr/local/bin/xray}"
 XRAY_CONFIG="${XRAY_CONFIG:-/etc/xray/config.json}"
 STATE_FILE="${STATE_FILE:-/var/lib/nat-reality-bridge/install-state}"

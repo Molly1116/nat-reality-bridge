@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.5.1
+
+### Xray Configuration Test Hotfix
+
+- Use a temporary Xray configuration filename ending in `.json` so current Xray versions can identify the config format during validation.
+- Enforce `/etc/xray/config.tmp.json` for installer validation and reject temporary config paths without a `.json` suffix.
+- Record configuration-test failures as `stage=CONFIG_TESTED`, `status=FAILED`, and `failure_reason=config_test_failed` for `--status`.
+- Remove transaction-created temporary configs, unactivated `xray.new.*` files, and incomplete client output after a failed install while preserving existing config, backups, install state, and install log.
+- Clarify that successful deployment requires config validation, an active service, a managed marker, generated client files, and external Reality client verification.
+- Validate Xray 26.3.27 and the hotfix on an isolated empty Debian 13 x86_64 NAT VPS with 128 MB RAM, 128 MB swap, systemd, Direct SOCKS5, ISP egress, external Reality TCP Vision traffic, and a service restart.
+
 ## v1.5.0
 
 ### Reliable Deployment & Recovery

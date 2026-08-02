@@ -43,6 +43,8 @@ NAT Reality Bridge 用于在低资源 NAT VPS 上部署一个极简 Xray Reality
 
 安装器绝不自动安装 Supervisor。
 
+它也不会自动安装 Docker、Git、Python、Node.js 或数据库。必要工具缺失时会安全停止，而不是自动执行软件包安装。
+
 ### DNS 说明
 
 NAT Reality Bridge 不要求设置自定义 DNS，也不会修改 VPS 的系统解析器。DNS 不是单独的部署步骤。安装前可以确认 VPS 能够解析 Reality 目标：
@@ -52,6 +54,8 @@ getent hosts www.cloudflare.com || true
 ```
 
 如果此检查失败，请先通过服务商解决 VPS 网络或 DNS 问题，再进行安装。不要把 ISP SOCKS5 出口地址填写为公网入口地址。
+
+可以直接使用公网 IP 部署。若使用域名作为公网入口地址，DNS 记录需由用户自行创建和维护；安装器不会创建或修改 DNS 记录。
 
 部署前记录这些信息：
 
@@ -113,6 +117,8 @@ Password: CHANGE_ME_SOCKS5_PASSWORD
 
 - 类型：Private Proxy / 认证 SOCKS5
 - 参考链接：https://www.webshare.io/?referral_code=42f1h0pjvt1z
+
+该参考链接可能包含推荐关系。这里以透明方式提供当前个人自建参考，不构成效果保证，也不代表唯一供应商推荐。
 
 个人使用建议：
 
@@ -201,16 +207,16 @@ bash scripts/install.sh
 
 ```bash
 sed -n '1,220p' install.sh
-sed -n '220,520p' install.sh
-sed -n '520,760p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 ```
 
 如果你使用的是完整仓库：
 
 ```bash
 sed -n '1,220p' scripts/install.sh
-sed -n '220,520p' scripts/install.sh
-sed -n '520,760p' scripts/install.sh
+sed -n '221,520p' scripts/install.sh
+sed -n '521,1120p' scripts/install.sh
 ```
 
 ## 8. 执行安装
@@ -242,6 +248,8 @@ Continue? Type yes:
 安装器只面向受支持的单节点配置。修改已有配置前，它要求 `/etc/nat-reality-bridge/managed.marker` 中存在合法的、仅 root 可读的归属标记。标记只记录项目元数据和随机 install ID。
 
 没有合法标记时，已有 Xray 部署会被视为用户自行管理并被保留；不会被自动迁移、覆盖或删除。有标记的配置仍必须是受支持的单节点结构；多 inbound、多 outbound 或未知结构都会安全停止。本项目不管理多 ISP Xray 配置。
+
+临时 Xray 配置和激活后的正式配置均使用 `600 root:root` 权限。
 
 ## 9. Basic Mode / ISP Mode 选择
 
@@ -351,14 +359,33 @@ bash scripts/test-outbound.sh
 
 `test-outbound.sh` 只执行 **Direct SOCKS5 Test**。成功只代表 SOCKS5 地址和凭据可用，不代表 Reality 握手成功。应从外部客户端测试完成的节点，以验证公网 NAT 路径和经过 Xray 的认证流量。
 
+只有本地配置测试通过、选定服务后端报告 Xray 正在运行、`/etc/nat-reality-bridge/managed.marker` 已生成、客户端文件存在，并且外部客户端已成功通过 Reality 连接，才算部署完成。
+
+ISP Mode 还应确认内部 Reality 监听端口存在、Direct SOCKS5 Test 通过、外部 Reality 客户端使用预期 ISP 出口，并且服务重启后仍保持可用。Xray 下载成功、服务启动成功或 Direct SOCKS5 Test 通过，都不能单独证明端到端部署成功。
+
+验收清单：
+
+1. Xray 配置测试通过。
+2. systemd 为 active，或 Supervisor 报告 RUNNING。
+3. managed marker 已生成。
+4. 客户端节点文件存在。
+5. 内部 Reality 监听端口存在。
+6. ISP Mode 的 Direct SOCKS5 Test 通过。
+7. 外部客户端已完成 Reality 连接。
+8. Reality 流量使用预期的原生或 ISP 出口。
+9. Xray 重启后仍保持可用。
+
 完整仓库用户可用以下命令进行日常维护：
 
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
+bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
-当前 `update.sh` 只会创建备份并验证当前 Xray 配置，不会自动替换 Xray-core。
+`backup.sh` 会创建 root-only 备份。当前 `update.sh` 只会创建备份并验证当前 Xray 配置，不会自动替换 Xray-core。`uninstall.sh` 要求合法 ownership marker；没有标记的部署不会被自动删除。
 
 ## 安装恢复
 
@@ -392,7 +419,25 @@ bash scripts/install.sh --restart-interrupted
 
 `--resume` 保留为兼容别名。
 
-`install-state` 只保存阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+```bash
+# 单文件下载
+bash install.sh --resume
+
+# 完整仓库目录
+bash scripts/install.sh --resume
+```
+
+它不是真正的阶段断点续跑，而是启动新的受保护事务，可能生成新的节点参数。
+
+`install-state` 只保存阶段、时间、服务后端、备份路径、状态和非敏感失败原因摘要，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+
+### Xray 配置校验失败
+
+如果安装器在 Xray 配置校验阶段停止，不要编辑临时配置，也不要把 Xray 下载成功视为部署成功。单文件下载用户运行 `bash install.sh --status`；仓库用户在仓库目录运行 `bash scripts/install.sh --status`。配置测试失败会记录为 `status=FAILED` 并带有非敏感失败摘要。本次事务会删除临时 JSON 配置、未激活的 `xray.new.*` 二进制和新生成的客户端文件，同时保留已有配置、备份、安装状态和安装日志。请下载当前安装器，查看 `/var/log/nat-reality-bridge-install.log`，再启动新的受保护安装事务。
+
+### v1.5.1 验证范围
+
+v1.5.1 已使用 Xray 26.3.27 在隔离空白 Debian 13 x86_64 NAT VPS 上完成验证，环境为 128MB RAM、128MB swap 和可用 systemd 后端。验证覆盖配置失败清理、正常安装、Direct SOCKS5、经过 Xray 的 ISP 出站、外部 Reality TCP Vision 流量以及服务重启。不会公开生产标识或凭据。
 
 ## 14. 常见问题
 

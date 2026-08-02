@@ -131,6 +131,7 @@ Core concept:
 - Stops safely before activation when no reliable service manager is available.
 - Uses an atomic Xray binary replacement path and records non-secret installation state for recovery.
 - Protects existing advanced Xray configurations from accidental overwrite.
+- Tests a temporary configuration whose filename ends in `.json`, so Xray can identify its JSON format before activation.
 
 ---
 
@@ -206,6 +207,8 @@ Minimal Debian NAT VPS images may not include Git. Git is not a runtime dependen
 
 64 MB RAM NAT VPS instances should be treated as experimental environments. Xray-core itself is lightweight, but minimal containers can still fail during download, extraction, or package work. The installer never installs extra software automatically; an extreme container can therefore stop safely when required tools or a reliable service manager are absent. Use 128 MB RAM or above, with swap enabled, as the recommended minimum.
 
+The installer does not install Supervisor, Docker, Git, Python, Node.js, or a database. A provider must expose at least one public TCP NAT port mapped to the internal Xray listener, normally `443`.
+
 v1.3.0 adds installer resource modes:
 
 - `EXTREME_LOW_RESOURCE`: below 80 MB RAM. Skips QR code generation, ASN/Country lookup, and non-essential outbound checks.
@@ -242,9 +245,23 @@ Full repository checkout:
 bash scripts/install.sh --restart-interrupted
 ```
 
-`--resume` remains available as a legacy alias for `--restart-interrupted`.
+Legacy compatibility alias:
 
-The root-only install state records only the stage, timestamp, selected service backend, backup path, and status. It never stores a UUID, Reality private key, SOCKS5 password, or VLESS URI.
+```bash
+# Standalone download
+bash install.sh --resume
+
+# Full repository checkout
+bash scripts/install.sh --resume
+```
+
+`--resume` remains a legacy alias for `--restart-interrupted`; it is not stage-level resume. The new transaction can generate new node parameters, so use the final successful node output.
+
+The root-only install state records only the stage, timestamp, selected service backend, backup path, status, and a non-secret failure reason summary. It never stores a UUID, Reality private key, SOCKS5 password, or VLESS URI.
+
+### Configuration Test Failure
+
+Configuration validation is a hard gate: Xray is not activated, no managed marker is created, and no client node is considered deployed until it passes. If validation fails, inspect `bash install.sh --status` for `status=FAILED` and its non-secret reason, then review `/var/log/nat-reality-bridge-install.log`. The installer restores the previous transaction state and removes the current temporary configuration, unactivated `xray.new.*` binary, and newly created client output files. Do not edit a temporary config to bypass this gate; download the current installer and start a new protected transaction only after reviewing the failure.
 
 ## Managed Installation Ownership
 
@@ -281,6 +298,8 @@ If you already understand the deployment flow, download the standalone installer
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -o install.sh
 sed -n '1,220p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 bash install.sh
 ```
 
@@ -307,6 +326,8 @@ Review the installer before execution:
 
 ```bash
 sed -n '1,220p' scripts/install.sh
+sed -n '221,520p' scripts/install.sh
+sed -n '521,1120p' scripts/install.sh
 ```
 
 Check your VPS environment:
@@ -335,6 +356,8 @@ Full repository users can also use helper scripts:
 bash scripts/health-check.sh
 bash scripts/backup.sh
 bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
 # Installation Output / 安装完成说明
@@ -352,10 +375,12 @@ Expected files:
 - `README.txt`: client import notes for Android, Windows, and iOS.
 - `install-summary.txt`: install result, mode, Xray status, config test result, and install time.
 
+`node.txt` is a key-value file. Import only the value after `VLESS_URI=`; do not copy the variable name. Download `node.png` from the server before scanning it on a local device.
+
 Example completion output:
 
 ```text
-NAT Reality Bridge v1.5.0
+NAT Reality Bridge v1.5.1
 
 Installation completed
 
@@ -364,6 +389,20 @@ Status:
 [OK] Configuration valid
 [OK] Outbound test passed
 ```
+
+An installation is complete only after all of the following are true:
+
+1. Xray configuration validation passed.
+2. The selected backend reports Xray active or Supervisor RUNNING.
+3. `/etc/nat-reality-bridge/managed.marker` exists.
+4. Client node files were generated.
+5. The internal Reality listener exists.
+6. In ISP Mode, Direct SOCKS5 Test passed.
+7. An external client completed a Reality connection.
+8. Reality traffic used the intended native or ISP egress path.
+9. The service remained usable after a restart.
+
+Xray download alone is not deployment success. A running service and a passing Direct SOCKS5 Test are also not substitutes for external Reality verification.
 
 ---
 

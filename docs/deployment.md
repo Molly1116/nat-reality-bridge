@@ -13,7 +13,9 @@ This document is a technical deployment reference. It focuses on checks, configu
 
 This document describes the generic deployment flow. Generate fresh values on every new server. Do not reuse production node parameters.
 
-Since v1.2.0, `scripts/install.sh` is an interactive installer. It performs environment checks, asks for the deployment mode, generates fresh Reality values, tests a temporary config, backs up the old config, and restarts Xray only after validation succeeds.
+Since v1.2.0, `scripts/install.sh` is an interactive installer. It performs environment checks, asks for the deployment mode, generates fresh Reality values, tests a temporary JSON config, backs up the old config, and restarts Xray only after validation succeeds.
+
+The temporary config used by Xray validation is `/etc/xray/config.tmp.json`; it must end in `.json`. If validation fails, the installation state is recorded as `FAILED` with a non-secret summary, and the transaction removes its temporary config, unactivated `xray.new.*` binary, and current uncommitted client output. Existing config, backups, state, and install log are preserved for review.
 
 After installation, client files and the install summary are written to `/root/nat-reality-bridge/`.
 
@@ -87,10 +89,12 @@ Or:
 wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
 ```
 
-Review the script before running it:
+Review the entire script before running it:
 
 ```bash
 sed -n '1,220p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 ```
 
 Run the installer:
@@ -122,6 +126,8 @@ The installer does not treat the presence of `systemctl` as proof that systemd w
 - No reliable manager: stops before activating config or replacing the active service.
 
 Supervisor is never installed automatically. This protects low-memory NAT containers from package-installation OOM failures.
+
+The installer also does not install Docker, Git, Python, Node.js, or a database.
 
 #### Existing Configuration Protection
 
@@ -174,7 +180,17 @@ bash scripts/install.sh --restart-interrupted
 
 `--resume` is retained as a legacy alias for `--restart-interrupted`.
 
-The state file records stage, timestamp, service backend, backup path, and status only. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
+```bash
+# Standalone download
+bash install.sh --resume
+
+# Full repository checkout
+bash scripts/install.sh --resume
+```
+
+It starts a new protected transaction rather than resuming individual stages, and can generate new node parameters.
+
+The state file records stage, timestamp, service backend, backup path, status, and a non-secret failure reason summary only. It does not store UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
 
 Use official Xray-core release assets and verify checksums before installing:
 
@@ -192,6 +208,8 @@ Recommended paths:
 /etc/xray/config.json
 /etc/systemd/system/xray.service
 ```
+
+Temporary and activated Xray configuration files use `600 root:root` permissions.
 
 ### 4. Reality Configuration
 
@@ -229,7 +247,7 @@ bash scripts/test-outbound.sh
 
 `health-check.sh` selects systemd, Supervisor, or unknown status according to the live host. `test-outbound.sh` performs a **Direct SOCKS5 Test** in ISP mode only. A passing direct test proves proxy reachability and credentials, not a successful Reality handshake.
 
-In Basic Mode, the final client exit IP should match the VPS native exit. In ISP Residential Exit Mode, the final client exit IP should match the SOCKS5 ISP exit IP after authenticated Reality traffic has been verified from an external client. Standalone users can validate the local config with `/usr/local/bin/xray run -test -config /etc/xray/config.json` and must use an external client for final Reality verification.
+In Basic Mode, the final client exit IP should match the VPS native exit. In ISP Residential Exit Mode, the final client exit IP should match the SOCKS5 ISP exit IP after authenticated Reality traffic has been verified from an external client. Standalone users can validate the local config with `/usr/local/bin/xray run -test -config /etc/xray/config.json` and must use an external client for final Reality verification. Completion requires config validation, an active selected backend, marker and client files, an internal listener, an external Reality connection, and a restart check. ISP Mode additionally requires a passing Direct SOCKS5 Test and matching intended ISP egress.
 
 ## 中文
 
@@ -242,7 +260,9 @@ In Basic Mode, the final client exit IP should match the VPS native exit. In ISP
 
 本文描述通用部署流程。所有值都应在新机器上重新生成，不要复用旧节点参数。
 
-从 v1.2.0 开始，`scripts/install.sh` 是交互式安装器。它会执行环境检查、询问部署模式、生成新的 Reality 参数、测试临时配置、备份旧配置，并且只在验证成功后重启 Xray。
+从 v1.2.0 开始，`scripts/install.sh` 是交互式安装器。它会执行环境检查、询问部署模式、生成新的 Reality 参数、测试临时 JSON 配置、备份旧配置，并且只在验证成功后重启 Xray。
+
+供 Xray 校验使用的临时配置为 `/etc/xray/config.tmp.json`，必须以 `.json` 结尾。校验失败时，安装状态会记录为 `FAILED` 并写入非敏感失败摘要；本次事务会删除临时配置、未激活的 `xray.new.*` 二进制和本次未提交的客户端输出。已有配置、备份、状态文件和安装日志会保留以供审查。
 
 安装完成后，客户端文件和安装总结会写入 `/root/nat-reality-bridge/`。
 
@@ -316,10 +336,12 @@ curl -fsSL https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/s
 wget https://raw.githubusercontent.com/Molly1116/nat-reality-bridge/main/scripts/install.sh -O install.sh
 ```
 
-执行前先审查脚本：
+执行前先完整审查脚本：
 
 ```bash
 sed -n '1,220p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 ```
 
 运行安装器：
@@ -351,6 +373,8 @@ cd nat-reality-bridge
 - 没有可靠服务管理器：在激活配置或替换活动服务前停止。
 
 安装器绝不自动安装 Supervisor，避免低内存 NAT 容器在软件包安装阶段 OOM。
+
+安装器也不会自动安装 Docker、Git、Python、Node.js 或数据库。
 
 #### 已有配置保护
 
@@ -403,7 +427,17 @@ bash scripts/install.sh --restart-interrupted
 
 `--resume` 保留为 `--restart-interrupted` 的兼容别名。
 
-状态文件只记录阶段、时间、服务后端、备份路径和状态，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
+```bash
+# 单文件下载
+bash install.sh --resume
+
+# 完整仓库目录
+bash scripts/install.sh --resume
+```
+
+它会启动新的受保护事务，而不是从具体阶段继续，可能生成新的节点参数。
+
+状态文件只记录阶段、时间、服务后端、备份路径、状态和非敏感失败原因摘要，不保存 UUID、Reality privateKey、SOCKS5 password 或 VLESS URI。
 
 使用官方 Xray-core release，并校验下载文件：
 
@@ -421,6 +455,8 @@ Xray-linux-64.zip.dgst
 /etc/xray/config.json
 /etc/systemd/system/xray.service
 ```
+
+临时和激活后的 Xray 配置均使用 `600 root:root` 权限。
 
 ### 4. Reality 配置
 
@@ -458,4 +494,4 @@ bash scripts/test-outbound.sh
 
 `health-check.sh` 会根据实际主机选择 systemd、Supervisor 或 unknown 状态。ISP 模式中，`test-outbound.sh` 只执行 **Direct SOCKS5 Test**。直接测试通过只说明代理地址和凭据可用，不代表 Reality 握手成功。
 
-Basic Mode 下，最终客户端出口 IP 应等于 VPS 原生出口。ISP Residential Exit Mode 下，只有从外部客户端完成认证 Reality 流量验证后，最终出口 IP 才应等于 SOCKS5 ISP 出口 IP。单文件用户可以通过 `/usr/local/bin/xray run -test -config /etc/xray/config.json` 验证本地配置，并必须从外部客户端完成最终 Reality 验证。
+Basic Mode 下，最终客户端出口 IP 应等于 VPS 原生出口。ISP Residential Exit Mode 下，只有从外部客户端完成认证 Reality 流量验证后，最终出口 IP 才应等于 SOCKS5 ISP 出口 IP。单文件用户可以通过 `/usr/local/bin/xray run -test -config /etc/xray/config.json` 验证本地配置，并必须从外部客户端完成最终 Reality 验证。部署完成还需要配置测试通过、所选服务后端 active、marker 和客户端文件已生成、内部端口正在监听、外部 Reality 连接成功，以及重启后仍可用。ISP Mode 还需 Direct SOCKS5 Test 通过并确认使用预期 ISP 出口。

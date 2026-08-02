@@ -24,6 +24,8 @@ Based on current testing and price experience, Webshare Private Proxy is a more 
 
 Link: <https://www.webshare.io/?referral_code=42f1h0pjvt1z>
 
+Disclosure: this URL may contain a referral relationship. It is included transparently as a current personal-use reference, not as a guarantee or an exclusive provider recommendation.
+
 Personal-use guidance:
 
 - Choose a Private Proxy rather than a shared proxy.
@@ -72,6 +74,8 @@ Provider conditions change frequently. Always test:
 根据当前测试和价格体验，Webshare Private Proxy 更适合作为个人自建节点的推荐选择。
 
 链接：<https://www.webshare.io/?referral_code=42f1h0pjvt1z>
+
+说明：该链接可能包含推荐关系。这里以透明方式提供当前个人自建参考，不构成效果保证，也不代表唯一供应商推荐。
 
 个人使用建议：
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NRB_VERSION="v1.5.0"
+NRB_VERSION="v1.5.1"
 APP_DIR="${APP_DIR:-/root/nat-reality-bridge}"
 NODE_FILE="${NODE_FILE:-${APP_DIR}/node.txt}"
 MODE="${MODE:-}"

@@ -109,6 +109,8 @@ bash scripts/install.sh
 
 After a successful installation, the tool writes a non-secret, root-only ownership marker at `/etc/nat-reality-bridge/managed.marker`. Future managed update and uninstall operations require this marker; an existing deployment without it is preserved for manual review.
 
+Do not regard the install as complete merely because Xray was downloaded. Success requires a passed config test, an active service or Supervisor RUNNING state, the managed marker, generated client files, an internal Reality listener, and a successful external Reality client test. In ISP Mode, also verify Direct SOCKS5, the expected egress, and service health after restart. If config validation fails, run `bash install.sh --status` for a standalone download or `bash scripts/install.sh --status` from a repository checkout; the installer records a non-secret `FAILED` reason and removes its temporary sensitive artifacts.
+
 Choose a deployment mode:
 
 - Basic Mode: use the VPS native exit.
@@ -135,6 +137,8 @@ Files:
 - `node.png`: QR code, if `qrencode` was available.
 - `README.txt`: short client import notes.
 - `install-summary.txt`: installation summary.
+
+`node.txt` is a key-value file. Import only the value after `VLESS_URI=` and not the variable name.
 
 Android:
 
@@ -186,9 +190,26 @@ For full repository users, a safe routine is:
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
+bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
-`update.sh` currently backs up and validates the current configuration only; it does not replace Xray-core automatically.
+`health-check.sh` verifies local config, service backend, and listener state but cannot replace an external Reality test. `backup.sh` creates a root-only backup. `test-outbound.sh` performs Direct SOCKS5 verification. `update.sh` currently backs up and validates the current configuration only; it does not replace Xray-core automatically. `uninstall.sh` requires a valid ownership marker and preserves unmarked deployments.
+
+For an interrupted installer transaction, use the command that matches how you obtained the script:
+
+```bash
+# Standalone download
+bash install.sh --status
+bash install.sh --restart-interrupted
+
+# Full repository checkout
+bash scripts/install.sh --status
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` is only a compatibility alias for `--restart-interrupted`; it starts a new protected transaction and can generate new node parameters.
 
 Useful paths:
 
@@ -314,6 +335,8 @@ bash scripts/install.sh
 
 安装成功后，工具会在 `/etc/nat-reality-bridge/managed.marker` 写入仅 root 可读的非敏感归属标记。后续受管更新和卸载都需要该标记；没有标记的已有部署会被保留，等待人工审查。
 
+不要仅因 Xray 已下载就认为安装成功。成功需要同时满足：配置测试通过、服务 active 或 Supervisor RUNNING、managed marker 已生成、客户端文件已生成、内部 Reality 端口正在监听，并且外部 Reality 客户端测试成功。ISP Mode 还应验证 Direct SOCKS5、预期出口以及重启后的服务状态。配置校验失败时，单文件下载用户运行 `bash install.sh --status`，仓库用户在仓库目录运行 `bash scripts/install.sh --status`；安装器会记录非敏感的 `FAILED` 原因并删除本次临时敏感文件。
+
 选择部署模式：
 
 - Basic Mode：使用 VPS 原生出口。
@@ -340,6 +363,8 @@ bash scripts/install.sh
 - `node.png`：二维码，如果 `qrencode` 可用。
 - `README.txt`：简短客户端导入说明。
 - `install-summary.txt`：安装总结。
+
+`node.txt` 是键值格式文件。导入时只复制 `VLESS_URI=` 后面的值，不要复制变量名。
 
 Android：
 
@@ -391,9 +416,26 @@ ISP 模式中，`test-outbound.sh` 只是 Direct SOCKS5 Test。通过只代表 S
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
+bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
-当前 `update.sh` 只会备份和验证当前配置，不会自动替换 Xray-core。
+`health-check.sh` 检查本机配置、服务后端和监听状态，但不能代替外部 Reality 测试。`backup.sh` 创建 root-only 备份。`test-outbound.sh` 执行 Direct SOCKS5 验证。当前 `update.sh` 只会备份和验证当前配置，不会自动替换 Xray-core。`uninstall.sh` 要求合法 ownership marker，并会保留没有标记的已有部署。
+
+安装器事务中断时，按获得脚本的方式使用对应命令：
+
+```bash
+# 单文件下载
+bash install.sh --status
+bash install.sh --restart-interrupted
+
+# 完整仓库目录
+bash scripts/install.sh --status
+bash scripts/install.sh --restart-interrupted
+```
+
+`--resume` 只是 `--restart-interrupted` 的兼容别名；它会启动新的受保护事务，可能生成新的节点参数。
 
 常用路径：
 

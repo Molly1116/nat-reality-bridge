@@ -45,6 +45,8 @@ Recommended baseline:
 
 The installer never installs Supervisor automatically.
 
+It also never installs Docker, Git, Python, Node.js, or a database. Missing required tools cause a safe stop instead of an automatic package installation.
+
 ### DNS Note
 
 NAT Reality Bridge does not ask for a custom DNS server and does not modify the VPS resolver. DNS setup is not a separate deployment step. Before installation, you may confirm that the VPS can resolve the Reality target:
@@ -54,6 +56,8 @@ getent hosts www.cloudflare.com || true
 ```
 
 If this check fails, resolve the VPS networking or DNS issue with your provider before installing. Do not substitute the ISP SOCKS5 exit address for the public entry host.
+
+You may deploy with a public IP directly. If you use a domain as the public entry host, create and maintain its DNS record yourself; the installer does not create or change DNS records.
 
 Record these values before installation:
 
@@ -117,6 +121,8 @@ Based on current testing and price experience, Webshare Private Proxy is a more 
 
 - Type: Private Proxy / authenticated SOCKS5
 - Reference: https://www.webshare.io/?referral_code=42f1h0pjvt1z
+
+The reference URL may contain a referral relationship. It is provided transparently as a current personal-use reference, not as a guarantee or an exclusive provider recommendation.
 
 Personal-use guidance:
 
@@ -205,16 +211,16 @@ Always review installation scripts before running them:
 
 ```bash
 sed -n '1,220p' install.sh
-sed -n '220,520p' install.sh
-sed -n '520,760p' install.sh
+sed -n '221,520p' install.sh
+sed -n '521,1120p' install.sh
 ```
 
 If you are using the full repository instead of the standalone file:
 
 ```bash
 sed -n '1,220p' scripts/install.sh
-sed -n '220,520p' scripts/install.sh
-sed -n '520,760p' scripts/install.sh
+sed -n '221,520p' scripts/install.sh
+sed -n '521,1120p' scripts/install.sh
 ```
 
 ## 8. Run the Installer / 执行安装
@@ -246,6 +252,8 @@ Type the full word `yes` and press Enter. Pressing Enter without `yes` cancels t
 The installer is for a supported single-node configuration. Before it modifies an existing config, it requires a valid root-only ownership marker at `/etc/nat-reality-bridge/managed.marker`. The marker contains project metadata and a random install ID only.
 
 Without a valid marker, the existing Xray deployment is treated as user-managed and preserved. It is not automatically migrated, overwritten, or removed. A marker-backed config must still be the supported single-node structure; multi-inbound, multi-outbound, and unrecognized configurations stop safely. This project does not manage multi-ISP Xray configurations.
+
+The temporary and activated Xray configs are created with `600 root:root` permissions.
 
 ## 9. Choose Basic Mode or ISP Mode / 选择模式
 
@@ -355,14 +363,33 @@ Do not run `scripts/health-check.sh` or `scripts/test-outbound.sh` after a stand
 
 `test-outbound.sh` performs a **Direct SOCKS5 Test** only. A successful result proves SOCKS5 reachability and credentials, not a Reality handshake. Verify the completed client node from an external client to test the public NAT path and authenticated Through Xray traffic.
 
+Treat deployment as complete only when the local config test passes, the selected service backend reports Xray running, `/etc/nat-reality-bridge/managed.marker` exists, client files exist, and an external client successfully connects through Reality.
+
+For ISP Mode, also verify that the internal Reality listener exists, Direct SOCKS5 Test passes, the external Reality client uses the intended ISP egress, and the service remains usable after a restart. Xray download, service startup, and a Direct SOCKS5 Test alone are not end-to-end success.
+
+Acceptance checklist:
+
+1. Xray config test passed.
+2. systemd is active or Supervisor reports RUNNING.
+3. The managed marker exists.
+4. Client node files exist.
+5. The internal Reality listener exists.
+6. ISP Mode Direct SOCKS5 Test passed.
+7. An external client completed a Reality connection.
+8. Reality traffic used the intended native or ISP egress.
+9. Xray remained usable after a restart.
+
 For routine maintenance from a full repository checkout:
 
 ```bash
 bash scripts/health-check.sh
 bash scripts/backup.sh
+bash scripts/test-outbound.sh
+bash scripts/update.sh
+bash scripts/uninstall.sh
 ```
 
-`update.sh` currently creates a backup and validates the current Xray configuration; it does not replace Xray-core automatically.
+`backup.sh` creates a root-only backup. `update.sh` currently creates a backup and validates the current Xray configuration; it does not replace Xray-core automatically. `uninstall.sh` requires a valid ownership marker and keeps unmarked deployments protected from automatic removal.
 
 ## Installation Recovery
 
@@ -396,7 +423,25 @@ bash scripts/install.sh --restart-interrupted
 
 `--resume` remains available as a legacy alias.
 
-`install-state` stores only the stage, timestamp, service backend, backup path, and status. It never stores UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
+```bash
+# Standalone download
+bash install.sh --resume
+
+# Full repository checkout
+bash scripts/install.sh --resume
+```
+
+It is not stage-level resume; this starts a new protected transaction and can generate new node parameters.
+
+`install-state` stores only the stage, timestamp, service backend, backup path, status, and a non-secret failure reason summary. It never stores UUIDs, Reality private keys, SOCKS5 passwords, or VLESS URIs.
+
+### Configuration Validation Failed
+
+If the installer stops during Xray configuration validation, do not edit the temporary config or treat Xray download success as deployment success. Run `bash install.sh --status` for a standalone download, or `bash scripts/install.sh --status` from a repository checkout. A config-test failure is recorded as `status=FAILED` with a non-secret summary. The current transaction removes its temporary JSON config, unactivated `xray.new.*` binary, and newly created client files while preserving the existing config, backups, install state, and install log. Download the current installer, review `/var/log/nat-reality-bridge-install.log`, and only then start a new protected transaction.
+
+### v1.5.1 Validation Scope
+
+v1.5.1 was validated with Xray 26.3.27 on an isolated empty Debian 13 x86_64 NAT VPS with 128 MB RAM, 128 MB swap, and a usable systemd backend. Validation covered the configuration-failure cleanup path, normal installation, Direct SOCKS5, ISP egress through Xray, external Reality TCP Vision traffic, and a service restart. No production identifiers or credentials are published.
 
 ## 14. Common Issues / 常见问题
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NAT Reality Bridge v1.5.0 installer.
+# NAT Reality Bridge v1.5.1 installer.
 # Review before running. Sensitive values are collected interactively.
 
-NRB_VERSION="v1.5.0"
+NRB_VERSION="v1.5.1"
 XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
 XRAY_BIN="${XRAY_BIN:-/usr/local/bin/xray}"
 XRAY_CONFIG_DIR="${XRAY_CONFIG_DIR:-/etc/xray}"
 XRAY_CONFIG="${XRAY_CONFIG:-/etc/xray/config.json}"
-XRAY_CONFIG_TMP="${XRAY_CONFIG_TMP:-/etc/xray/config.json.tmp}"
+XRAY_CONFIG_TMP="${XRAY_CONFIG_TMP:-/etc/xray/config.tmp.json}"
 XRAY_SHARE_DIR="${XRAY_SHARE_DIR:-/usr/local/share/xray}"
 XRAY_SERVICE="${XRAY_SERVICE:-/etc/systemd/system/xray.service}"
 SUPERVISOR_CONF_DIR="${SUPERVISOR_CONF_DIR:-/etc/supervisor/conf.d}"
@@ -67,6 +67,10 @@ XRAY_BINARY_ACTIVATED="no"
 XRAY_CONFIG_ACTIVATED="no"
 SERVICE_ARTIFACT_CREATED="no"
 MANAGED_MARKER_ACTIVATED="no"
+BACKUP_COMPLETED="no"
+FAILURE_HANDLED="no"
+TEMP_CONFIG_CREATED="no"
+XRAY_NEW_BIN_CREATED="no"
 
 banner() {
   cat <<'EOF'
@@ -78,7 +82,11 @@ EOF
 
 die() {
   if [ "${STATE_WRITES_ENABLED:-no}" = "yes" ] && [ -n "${STATE_FILE:-}" ] && [ -d "${STATE_DIR:-}" ]; then
-    state_update "${CURRENT_STAGE:-PRECHECK}" "FAILED" || true
+    if [ "${BACKUP_COMPLETED:-no}" = "yes" ] || [ "${TEMP_CONFIG_CREATED:-no}" = "yes" ] || [ "${XRAY_NEW_BIN_CREATED:-no}" = "yes" ]; then
+      handle_failed_transaction "${CURRENT_STAGE:-PRECHECK}" "installer_aborted"
+    else
+      state_update "${CURRENT_STAGE:-PRECHECK}" "FAILED" "installer_aborted" || true
+    fi
   fi
   echo "ERROR: $*" >&2
   exit 1
@@ -93,6 +101,7 @@ state_value() {
 state_update() {
   local stage="$1"
   local status="$2"
+  local failure_reason="${3:-none}"
   local state_tmp
   CURRENT_STAGE="$stage"
   mkdir -p "$STATE_DIR"
@@ -105,6 +114,7 @@ updated_at=$(date -Is)
 service_backend=${SERVICE_BACKEND}
 backup_path=${LAST_BACKUP_DIR}
 status=${status}
+failure_reason=${failure_reason}
 EOF
   chmod 600 "$state_tmp"
   mv -f "$state_tmp" "$STATE_FILE"
@@ -116,7 +126,7 @@ show_install_state() {
     return 0
   fi
   echo "NAT Reality Bridge install state"
-  sed -n '1,5p' "$STATE_FILE"
+  sed -n '1,6p' "$STATE_FILE"
 }
 
 describe_existing_config() {
@@ -360,6 +370,10 @@ preflight() {
   echo "== preflight checks =="
   detect_download_tool
   echo "Download tool: ${DOWNLOAD_TOOL}"
+  case "$XRAY_CONFIG_TMP" in
+    *.json) ;;
+    *) die "Temporary Xray config path must end in .json: $XRAY_CONFIG_TMP" ;;
+  esac
   command -v unzip >/dev/null || die "unzip is required."
   command -v sha256sum >/dev/null || die "sha256sum is required."
   command -v ss >/dev/null || echo "Warning: ss is not available; listen checks may be limited." >&2
@@ -520,13 +534,33 @@ backup_existing() {
   mkdir -p "$BACKUP_ROOT"
   LAST_BACKUP_DIR="$BACKUP_ROOT/backup-$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "$LAST_BACKUP_DIR"
-  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$SUPERVISOR_CONFIG" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT" "$INSTALL_SUMMARY" "$MANAGED_MARKER"; do
+  for p in "$XRAY_CONFIG" "$XRAY_SERVICE" "$SUPERVISOR_CONFIG" "$XRAY_BIN" "$XRAY_SHARE_DIR/geoip.dat" "$XRAY_SHARE_DIR/geosite.dat" "$NODE_OUTPUT" "$NODE_LEGACY_OUTPUT" "$NODE_PNG" "$CLIENT_README" "$INSTALL_SUMMARY" "$MANAGED_MARKER"; do
     if [ -e "$p" ]; then
       cp -a "$p" "$LAST_BACKUP_DIR/$(echo "$p" | sed 's#^/##; s#/#_#g')"
     fi
   done
   echo "Backup directory: $LAST_BACKUP_DIR"
   state_update "BACKUP_CREATED" "IN_PROGRESS"
+  BACKUP_COMPLETED="yes"
+}
+
+cleanup_failed_transaction() {
+  [ "$TEMP_CONFIG_CREATED" = "yes" ] && rm -f "$XRAY_CONFIG_TMP"
+  [ "$XRAY_NEW_BIN_CREATED" = "yes" ] && rm -f "$XRAY_NEW_BIN"
+  rm -f "${STATE_FILE}.tmp.$$" "${MANAGED_MARKER}.tmp.$$"
+
+  [ "$BACKUP_COMPLETED" = "yes" ] || return 0
+
+  for spec in \
+    "$NODE_OUTPUT|root_nat-reality-bridge_node.txt" \
+    "$NODE_LEGACY_OUTPUT|root_nat-reality-bridge-node.txt" \
+    "$NODE_PNG|root_nat-reality-bridge_node.png" \
+    "$CLIENT_README|root_nat-reality-bridge_README.txt" \
+    "$INSTALL_SUMMARY|root_nat-reality-bridge_install-summary.txt"; do
+    target="${spec%%|*}"
+    backup_name="${spec#*|}"
+    [ -f "$LAST_BACKUP_DIR/$backup_name" ] || rm -f "$target"
+  done
 }
 
 rollback() {
@@ -566,8 +600,10 @@ rollback() {
   fi
   [ -f "$LAST_BACKUP_DIR/usr_local_share_xray_geoip.dat" ] && cp -a "$LAST_BACKUP_DIR/usr_local_share_xray_geoip.dat" "$XRAY_SHARE_DIR/geoip.dat"
   [ -f "$LAST_BACKUP_DIR/usr_local_share_xray_geosite.dat" ] && cp -a "$LAST_BACKUP_DIR/usr_local_share_xray_geosite.dat" "$XRAY_SHARE_DIR/geosite.dat"
-  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" "$NODE_OUTPUT"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.txt" "$NODE_OUTPUT"
+  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge-node.txt" "$NODE_LEGACY_OUTPUT"
+  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.png" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_node.png" "$NODE_PNG"
+  [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_README.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_README.txt" "$CLIENT_README"
   [ -f "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" ] && cp -a "$LAST_BACKUP_DIR/root_nat-reality-bridge_install-summary.txt" "$INSTALL_SUMMARY"
   if [ "$MANAGED_MARKER_ACTIVATED" = "yes" ]; then
     if [ -f "$LAST_BACKUP_DIR/etc_nat-reality-bridge_managed.marker" ]; then
@@ -591,10 +627,20 @@ rollback() {
   esac
 }
 
+handle_failed_transaction() {
+  local failed_stage="$1"
+  local failure_reason="$2"
+
+  [ "$FAILURE_HANDLED" = "yes" ] && return 0
+  FAILURE_HANDLED="yes"
+  state_update "$failed_stage" "FAILED" "$failure_reason" || true
+  rollback || true
+  cleanup_failed_transaction
+}
+
 on_error() {
   echo "Installation failed. Attempting rollback." >&2
-  state_update "${CURRENT_STAGE:-PRECHECK}" "FAILED" || true
-  rollback || true
+  handle_failed_transaction "${CURRENT_STAGE:-PRECHECK}" "unexpected_error"
 }
 
 install_xray() {
@@ -612,6 +658,7 @@ install_xray() {
   state_update "ARTIFACT_VERIFIED" "IN_PROGRESS"
 
   XRAY_NEW_BIN="${XRAY_BIN}.new.$$"
+  XRAY_NEW_BIN_CREATED="yes"
   umask 077
   unzip -p "$asset" xray > "$XRAY_NEW_BIN"
   chmod 755 "$XRAY_NEW_BIN"
@@ -623,6 +670,7 @@ activate_xray_binary() {
   [ -n "$XRAY_NEW_BIN" ] && [ -x "$XRAY_NEW_BIN" ] || die "Validated replacement Xray binary is missing."
   mv -f "$XRAY_NEW_BIN" "$XRAY_BIN"
   XRAY_NEW_BIN=""
+  XRAY_NEW_BIN_CREATED="no"
   XRAY_BINARY_ACTIVATED="yes"
 }
 
@@ -642,6 +690,9 @@ json_escape() {
 }
 
 write_temp_config() {
+  [ ! -e "$XRAY_CONFIG_TMP" ] || die "Temporary config path already exists: $XRAY_CONFIG_TMP"
+  TEMP_CONFIG_CREATED="yes"
+  umask 077
   listen_line=""
   if [ -n "$LISTEN_ADDRESS" ]; then
     listen_line="\"listen\": \"$(json_escape "$LISTEN_ADDRESS")\","
@@ -760,6 +811,7 @@ config_test() {
 activate_config() {
   install -m 0600 "$XRAY_CONFIG_TMP" "$XRAY_CONFIG"
   rm -f "$XRAY_CONFIG_TMP"
+  TEMP_CONFIG_CREATED="no"
   XRAY_CONFIG_ACTIVATED="yes"
   state_update "CONFIG_ACTIVATED" "IN_PROGRESS"
 }
@@ -1016,6 +1068,8 @@ main() {
     state_update "CONFIG_TESTED" "IN_PROGRESS"
   else
     CONFIG_TEST_RESULT="failed"
+    echo "Configuration test failed. Previous files are being restored and temporary secrets removed." >&2
+    handle_failed_transaction "CONFIG_TESTED" "config_test_failed"
     return 1
   fi
   activate_xray_binary
